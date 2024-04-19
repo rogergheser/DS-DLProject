@@ -1,3 +1,8 @@
+# Installation
+'''bash 
+pip install -r requirements.txt
+'''
+
 # TTA-DLProject
 Deep Learning 2024 Project.
 
