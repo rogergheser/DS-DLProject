@@ -2,7 +2,6 @@ import os
 from CLIP.clip import clip
 import torch
 import torchvision
-import cv2
 from torchvision.datasets import CIFAR100
 
 if torch.cuda.is_available():
@@ -15,8 +14,8 @@ else:
 model, preprocess = clip.load('ViT-B/32', device)
 cifar100 = CIFAR100(root=os.path.expanduser("~/.cache"), download=True, train=False)
 
-image, label = cifar100[3237]
-image = preprocess(image).unsqueeze(0).to(device)
+image_pil, label = cifar100[3237]
+image = preprocess(image_pil).unsqueeze(0).to(device)
 text_inputs = torch.cat([clip.tokenize(f"a photo of a {c}") for c in cifar100.classes]).to(device)
 
 with torch.no_grad():
@@ -34,5 +33,4 @@ for value, index in zip(values, indices):
     print(f"{cifar100.classes[index]:>16s}: {100 * value.item():.2f}%")
 print("\nTrue label:{}".format(cifar100.classes[label]))
 
-cv2.imshow(image)
-cv2.waitKey(0)
+image_pil.show()
