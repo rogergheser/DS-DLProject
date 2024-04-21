@@ -1,5 +1,5 @@
 dl-env/
-data/imagenet-a
-data/imagenetv2-matched-frequency-format-val
+data/**
+data/**
 .vscode
 .DS_Store
