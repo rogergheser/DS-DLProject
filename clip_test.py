@@ -21,8 +21,8 @@ all_wnids = py_vars.all_wnids
 if torch.cuda.is_available():
     device = "cuda:0"
 elif torch.backends.mps.is_available():
-    # device = "mps"
-    device = "cpu"
+    device = "mps"
+    # device = "cpu"
 else:
     device = "cpu"
 
@@ -43,18 +43,20 @@ assert sorted(imagenet_a_wnids) == sorted(py_vars.imagenet_a_wnids)
 imagenet_a_mask = [wnid in set(imagenet_a_wnids) for wnid in all_wnids]
 
 imagenet_A = datasets.ImageFolder(root='./data/imagenet-a', transform=preprocess)
-imagenet_A_loader = torch.utils.data.DataLoader(imagenet_A, batch_size=10, shuffle=True, pin_memory=False)
+imagenet_A_loader = torch.utils.data.DataLoader(imagenet_A, batch_size=10, shuffle=True)
 
 dataiter = iter(imagenet_A_loader)
 
 
 image, labels = next(dataiter)
+
 image.to(device)
-    
+
 text_inputs = torch.cat([clip.tokenize(f"a photo of a {py_vars.num2class[c]}") for c in imagenet_A.classes]).to(device)
 
 with torch.no_grad():
-    image_features = model.encode_image(image)
+    # image_features = model.encode_image(image)
+    image_features = model.encode_image(image.to(device))
     text_features = model.encode_text(text_inputs)
 
 image_features /= image_features.norm(dim=-1, keepdim=True)
