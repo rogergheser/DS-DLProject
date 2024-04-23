@@ -86,7 +86,7 @@ def eval(loader: torch.utils.data.DataLoader,
             total += 1
             topk_total += 1
         
-        loop.set_postfix_str(f"@1={correct / total}, @5={topk_correct / topk_total}")
+        loop.set_postfix_str(f"@1={correct / total}, @{k}={topk_correct / topk_total}")
         
     return correct / total, topk_correct / topk_total
 
