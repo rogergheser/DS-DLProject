@@ -5,6 +5,7 @@ import tqdm
 from CLIP.clip import clip
 import torch
 import torchvision
+import loaders
 from torchvision.datasets import CIFAR100
 from torchvision.transforms import AugMix
 import torchvision.datasets as datasets
@@ -119,7 +120,12 @@ def eval(loader: torch.utils.data.DataLoader,
 
                 if labels[i] in indices:
                     topk_correct += 1
-
+                print("\nTop predictions:\n")
+                for value, index in zip(values, indices):
+                    print(f"{id2class[index.item()]:>16s}: {100 * value.item():.2f}%")
+                print("\nTrue label:{}".format(id2class[labels[i].item()]))
+                show_image(images[i], f"{id2class[labels[i].item()]} - {labels[i]}")
+                print("\n\n")
         total += batch_size
         topk_total += batch_size
         
@@ -159,39 +165,26 @@ augmix_transform = transforms.Compose([transforms.Resize(224),
         ])
 
 
-model, preprocess = clip.load('ViT-L/14', device)
-
-imagenet_a_wnids = os.listdir('./data/imagenet-a')
-imagenet_a_wnids.remove('README.txt')
-assert len(imagenet_a_wnids) == 200
+model, preprocess = clip.load('ViT-B/16', device)
 
 print("="*90)
-imagenet_A = datasets.ImageFolder(root='./data/imagenet-a', transform=preprocess)
-imagenet_A_loader = torch.utils.data.DataLoader(imagenet_A, batch_size=1, shuffle=True)
-
-id2class = {imagenet_A.class_to_idx[c] : py_vars.num2class[c] for c in imagenet_A.classes}
+imagenet_A_loader, id2class = loaders.load_imagenet_A('./data/imagenet-a', 256, preprocess)
 try:
-    top_1, top_5 = eval(imagenet_A_loader, py_vars.num2class.items(), id2class, device, augmix=63)
+    top_1, top_5 = eval(imagenet_A_loader, py_vars.num2class.items(), id2class, device, augmix=0)
 except KeyboardInterrupt:
     "Move on with next dataset"
 
 print("="*90)
-imagenet_v2 = datasets.ImageFolder(root='./data/imagenetv2-matched-frequency-format-val', transform=preprocess)
-imagenet_v2_loader = torch.utils.data.DataLoader(imagenet_v2, batch_size=1, shuffle=True)
-
-id2class = {imagenet_v2.class_to_idx[c] : py_vars.num2class_v2[int(c)] for c in imagenet_v2.classes}
+imagenet_v2_loader, id2class = loaders.load_imagenet_v2('./data/imagenetv2-matched-frequency-format-val', 1, preprocess, False)
 try:
-    top_1, top_5 = eval(imagenet_v2_loader, py_vars.num2class_v2.items(), id2class, device, augmix=63)
+    top_1, top_5 = eval(imagenet_v2_loader, py_vars.num2class_v2.items(), id2class, device, augmix=0)
 except KeyboardInterrupt:
     "Move on with next dataset"
 
 print("="*90)
-cifar100 = CIFAR100(root='./data/cifar100', download=True, transform=preprocess)
-cifar100_loader = torch.utils.data.DataLoader(cifar100, batch_size=1, shuffle=True)
-
-id2class = {cifar100.class_to_idx[c] : c for c in cifar100.classes}
+cifar100_loader, id2class = loaders.load_cifar100('./data/cifar100', 1, preprocess)
 try:
-    top_1, top_5 = eval(cifar100_loader, cifar100.classes, id2class, device, augmix=63)
+    top_1, top_5 = eval(cifar100_loader, id2class.items(), id2class, device, augmix=63)
 except KeyboardInterrupt:
     "Move on with next dataset"
 
