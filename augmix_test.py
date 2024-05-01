@@ -27,8 +27,8 @@ def process_batch(loader: torch.utils.data.DataLoader,
     images, labels = next(dataiter)
     images.to(device)
 
-    text_inputs = torch.cat([clip.tokenize(f"a photo of a {c}") for c in classes]).to(device)
-
+    # text_inputs = torch.cat([clip.tokenize(f"a photo of a {c}") for c in classes]).to(device)
+    text_inputs = torch.cat([clip.tokenize(f"a photo of a {c}") for c in id2class.values()]).to(device)
     with torch.no_grad():
         image_features = model.encode_image(images.to(device))
         text_features = model.encode_text(text_inputs)
@@ -60,7 +60,9 @@ def eval(loader: torch.utils.data.DataLoader,
     total = 0
     topk_correct = 0
     topk_total = 0
-    text_inputs = torch.cat([clip.tokenize(f"a photo of a {c}") for c in classes]).to(device)
+    # text_inputs = torch.cat([clip.tokenize(f"a photo of a {c}") for c in classes]).to(device)
+    text_inputs = torch.cat([clip.tokenize(f"a photo of a {c}") for c in id2class.values()]).to(device)
+
     dataset_name = loader.dataset.root.split("/")[-1]
     loop = tqdm.tqdm(loader, desc="Processing {}".format(dataset_name))
     text_features = None
@@ -114,18 +116,17 @@ def eval(loader: torch.utils.data.DataLoader,
         else:
             for i in range(similarity.shape[0]):
                 values, indices = similarity[i].topk(k)
-
                 if labels[i] == indices[0]:
                     correct += 1
 
                 if labels[i] in indices:
                     topk_correct += 1
-                print("\nTop predictions:\n")
-                for value, index in zip(values, indices):
-                    print(f"{id2class[index.item()]:>16s}: {100 * value.item():.2f}%")
-                print("\nTrue label:{}".format(id2class[labels[i].item()]))
-                show_image(images[i], f"{id2class[labels[i].item()]} - {labels[i]}")
-                print("\n\n")
+                # print("\nTop predictions:\n")
+                # for value, index in zip(values, indices):
+                #     print(f"{id2class[index.item()]:>16s}: {100 * value.item():.2f}%")
+                # print("\nTrue label:{}".format(id2class[labels[i].item()]))
+                # show_image(images[i], f"{id2class[labels[i].item()]} - {labels[i]}")
+                # print("\n\n")
         total += batch_size
         topk_total += batch_size
         
@@ -170,22 +171,20 @@ model, preprocess = clip.load('ViT-B/16', device)
 print("="*90)
 imagenet_A_loader, id2class = loaders.load_imagenet_A('./data/imagenet-a', 256, preprocess)
 try:
-    top_1, top_5 = eval(imagenet_A_loader, py_vars.num2class.items(), id2class, device, augmix=0)
+    top_1, top_5 = eval(imagenet_A_loader, list(py_vars.num2class.values()), id2class, device, augmix=0)
 except KeyboardInterrupt:
     "Move on with next dataset"
 
 print("="*90)
-imagenet_v2_loader, id2class = loaders.load_imagenet_v2('./data/imagenetv2-matched-frequency-format-val', 1, preprocess, False)
+imagenet_v2_loader, id2class = loaders.load_imagenet_v2('./data/imagenetv2-matched-frequency-format-val', 256, preprocess)
 try:
-    top_1, top_5 = eval(imagenet_v2_loader, py_vars.num2class_v2.items(), id2class, device, augmix=0)
+    top_1, top_5 = eval(imagenet_v2_loader, list(py_vars.num2class_v2.values()), id2class, device, augmix=0)
 except KeyboardInterrupt:
     "Move on with next dataset"
 
 print("="*90)
-cifar100_loader, id2class = loaders.load_cifar100('./data/cifar100', 1, preprocess)
+cifar100_loader, id2class = loaders.load_cifar100('./data/cifar100', 256, preprocess)
 try:
-    top_1, top_5 = eval(cifar100_loader, id2class.items(), id2class, device, augmix=63)
+    top_1, top_5 = eval(cifar100_loader, list(id2class.values()), id2class, device, augmix=0)
 except KeyboardInterrupt:
     "Move on with next dataset"
-
-# plot results
