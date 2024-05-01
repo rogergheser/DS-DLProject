@@ -1,9 +1,14 @@
 import torch
 import torch.nn as nn
+import torch.utils.data as data
 from torch.utils.tensorboard import SummaryWriter
-import clip
-from clip.simple_tokenizer import SimpleTokenizer as _Tokenizer
-import tqdm
+from torch.utils.data import random_split
+from torchvision import datasets
+from CLIP.clip import clip
+from CLIP.clip.simple_tokenizer import SimpleTokenizer as _Tokenizer
+from tqdm import tqdm
+
+
 _tokenizer = _Tokenizer()
 
 def get_optimizer(model, lr, wd, momentum):
@@ -282,11 +287,48 @@ def get_optimizer(model, lr, wd, momentum):
 
     return optimizer
 
+def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, val_size=0.1):
+    """
+    Loads the dataset and splits it into training, validation and test sets. Available datsets:
+    ["cifar10", "cifar100", "imagenet_v2", "imagenet_a"]
+    :param dataset_name: str: name of the dataset
+    :param batch_size: int: batch size
+    :param transform: function: preprocessing function
+    :param shuffle: bool: shuffle the dataset
+    :param train_size: float: proportion of the dataset to include in the training set
+    :param val_size: float: proportion of the dataset to include in the validation set
+    :return: tuple: training, validation and test dataloaders
+    """
+    if dataset_name == "cifar10":
+        dataset = datasets.CIFAR10(root="./data", download=True, transform=transform)
+    elif dataset_name == "cifar100":
+        dataset = datasets.CIFAR100(root="./data", download=True, transform=transform)
+    elif dataset_name == "imagenet_v2":
+        dataset = datasets.ImageFolder(root="./data/imagenetv2-matched-frequency", transform=transform)
+        dataset.classes = sorted(dataset.classes, key=int) # to address the issue of classes being sorted as strings
+        dataset.class_to_idx = {cls: i for i, cls in enumerate(dataset.classes)}
+    elif dataset_name == "imagenet_a":
+        dataset = datasets.ImageFolder(root="./data/imagenet-a", transform=transform)
+    else:
+        raise ValueError(f"Unknown dataset {dataset_name}")
+    
+    n = len(dataset)
+    n_train = int(train_size * n)
+    n_val = int(val_size * n)
+    n_test = n - n_train - n_val
+    train_dataset, val_dataset, test_dataset = random_split(dataset, [n_train, n_val, n_test])
+
+    train_loader = data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
+    val_loader = data.DataLoader(val_dataset, batch_size=batch_size, shuffle=shuffle)
+    test_loader = data.DataLoader(test_dataset, batch_size=batch_size, shuffle=shuffle)
+
+    return train_loader, val_loader, test_loader, dataset.classes, dataset.class_to_idx
+
 def main_coop(
     dataset_name="cifar10",
     batch_size=16,
     num_classes=10,
-    device="cuda:0",
+    device="mps",
     learning_rate=0.002,
     weight_decay=0.0005,
     momentum=0.9,
@@ -300,9 +342,10 @@ def main_coop(
     # Create a logger for the experiment
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
     
+    _, preprocess = clip.load("ViT-B/32", device=device)
     # Get dataloaders
-    train_loader, val_loader, test_loader = get_data(dataset_name, transform=preprocess, batch_size=batch_size)
-    classnames, _ = embed_dataset_classnames(dataset_name)
+    train_loader, val_loader, test_loader, classnames, id2class = get_data(dataset_name, batch_size, preprocess)
+
     
     # Instantiate the network and move it to the chosen device (GPU)
     net = OurCLIP(
@@ -325,9 +368,9 @@ def main_coop(
     
     # Computes evaluation results before training
     print("Before training:")
-    train_loss, train_accuracy = test_step(net, train_loader, cost_function)
-    val_loss, val_accuracy = test_step(net, val_loader, cost_function)
-    test_loss, test_accuracy = test_step(net, test_loader, cost_function)
+    train_loss, train_accuracy = test_step(net, train_loader, cost_function, device=device)
+    val_loss, val_accuracy = test_step(net, val_loader, cost_function, device=device)
+    test_loss, test_accuracy = test_step(net, test_loader, cost_function, device=device)
     
     # Log to TensorBoard
     log_values(writer, -1, train_loss, train_accuracy, "train")
@@ -340,17 +383,17 @@ def main_coop(
     
     # For each epoch, train the network and then compute evaluation results
     for e in range(epochs):
-        train_loss, train_accuracy = training_step(net, train_loader, optimizer, cost_function)
-        val_loss, val_accuracy = test_step(net, val_loader, cost_function)
+        train_loss, train_accuracy = training_step(net, train_loader, optimizer, cost_function, device=device)
+        val_loss, val_accuracy = test_step(net, val_loader, cost_function, device=device)
 
         log_values(writer, e, train_loss, train_accuracy, "train")
         log_values(writer, e, val_loss, val_accuracy, "validation")
 
     # Compute final evaluation results
     print("After training:")
-    train_loss, train_accuracy = test_step(net, train_loader, cost_function)
-    val_loss, val_accuracy = test_step(net, val_loader, cost_function)
-    test_loss, test_accuracy = test_step(net, test_loader, cost_function)
+    train_loss, train_accuracy = test_step(net, train_loader, cost_function, device=device)
+    val_loss, val_accuracy = test_step(net, val_loader, cost_function, device=device)
+    test_loss, test_accuracy = test_step(net, test_loader, cost_function, device=device)
     
     log_values(writer, epochs, train_loss, train_accuracy, "train")
     log_values(writer, epochs, val_loss, val_accuracy, "validation")
@@ -361,3 +404,13 @@ def main_coop(
     
     # Closes the logger
     writer.close()
+
+if __name__ == "__main__":
+    if torch.cuda.is_available():
+        DEVICE = "cuda"
+    elif torch.backends.mps.is_available():
+        DEVICE = "mps"
+    else:
+        DEVICE = "cpu"
+
+    main_coop(device=DEVICE)

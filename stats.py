@@ -24,3 +24,4 @@ def average_class_error(k:int = 1, save_path=Optional[str]):
     :param save_path: str: path to save the results
     """
     pass
+
