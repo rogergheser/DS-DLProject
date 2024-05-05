@@ -29,6 +29,7 @@ class PromptLearner(nn.Module):
         n_cls = len(classnames)
         ctx_dim = clip_model.ln_final.weight.shape[0]
         clip_imsize = clip_model.visual.input_resolution
+        _tokenizer = _Tokenizer()
 
         # Use given words to initialize context vectors
         if ctx_init:

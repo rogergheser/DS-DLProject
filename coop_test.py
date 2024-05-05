@@ -8,8 +8,6 @@ from COOP.utils import get_optimizer, get_cost_function, log_values
 from COOP.functions import training_step, test_step
 from COOP.dataloader import get_data
 
-
-
 _tokenizer = _Tokenizer()
 
 

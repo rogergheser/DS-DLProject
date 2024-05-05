@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 
 def training_step(net, data_loader, optimizer, cost_function, device="cuda"):
     samples = 0.0

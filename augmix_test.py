@@ -1,6 +1,5 @@
 import math
 import os
-
 import tqdm
 from CLIP.clip import clip
 import torch
