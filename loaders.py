@@ -28,8 +28,6 @@ def load_imagenet_v2(path:str, batch_size:int, preprocess:transforms.Compose, sh
     :param shuffle: bool: shuffle the dataset
     """
     imagenet_v2 = datasets.ImageFolder(root=path, transform=preprocess)
-    imagenet_v2.classes = sorted(imagenet_v2.classes, key=int)
-    imagenet_v2.class_to_idx = {cls: i for i, cls in enumerate(imagenet_v2.classes)}
     
     imagenet_v2_loader = torch.utils.data.DataLoader(imagenet_v2, batch_size=batch_size, shuffle=shuffle)
     
