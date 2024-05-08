@@ -138,7 +138,7 @@ def eval(loader: torch.utils.data.DataLoader,
 
                 if labels[i] in indices:
                     topk_correct += 1
-               
+
                 true_labels.append(labels[i].item())
                 predicted_topk_labels.append(indices)
                 predicted_topk_confidence.append(values)
@@ -147,7 +147,11 @@ def eval(loader: torch.utils.data.DataLoader,
         topk_total += batch_size
         
         loop.set_postfix_str(f"@1={correct / total}, @{k}={topk_correct / topk_total}")
-        
+
+    true_labels = torch.tensor(true_labels).cpu()
+    predicted_topk_labels = torch.stack([x.cpu() for x in predicted_topk_labels])
+    predicted_topk_confidence = torch.stack([x.cpu() for x in predicted_topk_confidence])  
+    
     return correct / total, topk_correct / topk_total, true_labels, predicted_topk_labels, predicted_topk_confidence
 
 def show_image(image, label):
@@ -204,7 +208,7 @@ for _dataset in _datasets:
     except KeyboardInterrupt:
         f"Stopped dataset of {_dataset} evaluation earlier"
 
-    predicted_label = [i[0] for i in predicted_topk_labels]
+    predicted_label = [i[0].item() for i in predicted_topk_labels]
     _, fig = stats.confusion_matrix(true_labels, predicted_label, list(py_vars.num2class.values()), f"results/{_dataset}/conf_mat")
     fig.savefig(f"results/{_dataset}/conf_mat/confusion_matrix_{idx}.png")
     # class_average_error = stats.average_class_error(cm)
