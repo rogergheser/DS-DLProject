@@ -2,7 +2,19 @@ import random
 import torch
 from torchvision import transforms
 import numpy as np
+import regex as re
+import os
 
+def get_index(path):
+    """
+    Given a directory path, returns the highest index of the files in the directory or zero
+    """
+    try:
+        files = os.listdir(path)
+        indices = [int(re.findall(r'\d+', file)[0]) for file in files]
+        return max(indices) + 1
+    except:
+        return 0
 
 class ToUint8Transform:
     """Transform to convert images to uint8"""
