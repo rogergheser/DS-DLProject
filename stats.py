@@ -14,7 +14,7 @@ from sklearn.metrics import confusion_matrix as confusion_matrix_comp
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-#from utils import get_index
+from utils import get_index
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from torch.utils.tensorboard import SummaryWriter
 LOG_DIR = "tmp/"
@@ -37,8 +37,8 @@ def confusion_matrix(true_labels: list[int], predicted_labels: list[int], class_
     fig.colorbar(cax)
 
     tick_marks = np.arange(len(class_names))
-    plt.xticks(tick_marks, classes)
-    plt.yticks(tick_marks, classes)
+    plt.xticks(tick_marks, class_names, rotation=45)
+    plt.yticks(tick_marks, class_names)
     thresh = cm.max() / 2.
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
