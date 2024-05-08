@@ -14,10 +14,9 @@ from sklearn.metrics import confusion_matrix as confusion_matrix_comp
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from torch.utils.tensorboard import SummaryWriter
-from utils import get_index
-
+#from utils import get_index
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+from torch.utils.tensorboard import SummaryWriter
 LOG_DIR = "tmp/"
 
 def confusion_matrix(true_labels: list[int], predicted_labels: list[int], class_names: list[str], save_path:str=Optional[str])->tuple:
@@ -61,10 +60,8 @@ def average_class_error(cm, k:int = 1, save_path=Optional[str]):
     :param save_path: str: path to save the results
     """
     # Compute class-wise error
-    class_error = 1 - np.diag(cm) / np.sum(cm, axis=1)
-    
-    class_average_error = np.mean(class_error)
-    return class_average_error
+    class_wise_error = 1 - np.diag(cm) / np.sum(cm, axis=1)
+    return class_wise_error
 
 if __name__ == "__main__":
     writer = SummaryWriter(LOG_DIR)
@@ -75,5 +72,5 @@ if __name__ == "__main__":
     writer.add_figure("Confusion Matrix", fig)
     idx = get_index(f"{LOG_DIR}/conf_mat")
     fig.savefig(f"{LOG_DIR}/conf_mat/confusion_matrix_{idx}.png")
-    class_average_error = average_class_error(cm)
-    print("Average Class Error:", class_average_error)
+    class_wise_error = average_class_error(cm)
+    print("Average Class Error:", class_wise_error)
