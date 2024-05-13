@@ -209,7 +209,7 @@ for _dataset in _datasets:
         f"Stopped dataset of {_dataset} evaluation earlier"
 
     predicted_label = [i[0].item() for i in predicted_topk_labels]
-    _, fig = stats.confusion_matrix(true_labels, predicted_label, list(py_vars.num2class.values()), f"results/{_dataset}/conf_mat")
+    fig, _ = stats.confusion_matrix(true_labels, predicted_label, list(py_vars.num2class.values()), f"results/{_dataset}/conf_mat")
     fig.savefig(f"results/{_dataset}/conf_mat/confusion_matrix_{idx}.png")
     # class_average_error = stats.average_class_error(cm)
 
