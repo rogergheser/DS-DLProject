@@ -6,7 +6,32 @@ from COOP.models import OurCLIP
 from COOP.utils import get_optimizer, get_cost_function, log_values
 from COOP.functions import training_step, test_step
 from COOP.dataloader import get_data
+import glob
 
+def find_files(wildcard_pattern):
+    return glob.glob(wildcard_pattern)
+
+def load_pretrained_coop(backbone, _model):
+    if backbone.lower() == "rn50":
+        _backbone = "rn50*"
+    elif backbone.lower() == "rn101":
+        _backbone = "rn101*"
+    elif backbone.lower() == "vit_b16":
+        _backbone = "vit_b16*"
+    elif backbone.lower() == "vit_b32":
+        _backbone = "vit_b32*"
+    else:
+        raise ValueError(f"Unknown backbone {backbone}")
+    path = "bin/coop/rn50_ep50_16shots/nctx4_cscFalse_ctpend/seed1/prompt_learner/model.pth.tar-50"
+
+    pretrained_ctx = torch.load(path, map_location='mps')['state_dict']['ctx']
+    assert pretrained_ctx.size()[0] == _model.prompt_learner.n_ctx, f"Number of context tokens mismatch: {_model.n_ctx} vs {pretrained_ctx.size()[0]}"
+    with torch.no_grad():
+        _model.prompt_learner.ctx.copy_(pretrained_ctx)
+        _model.prompt_learner.ctx_init_state = pretrained_ctx
+
+    return _model
+    
 def main_coop(
     dataset_name="imagenet_a",
     backbone="RN50",
@@ -26,19 +51,14 @@ def main_coop(
     # Create a logger for the experiment
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
 
-    # Get the model
-    if cocoop:
-        pass
-    else:
-        # Loading CoOp
-        model = load_coop()
-
-    # _, preprocess = clip.load(backbone, device=device)
+    _, preprocess = clip.load(backbone, device=device)
     
     # Get dataloaders
     train_loader, val_loader, test_loader, classnames, id2class = get_data(
         dataset_name, batch_size, preprocess
     )
+
+    ###### TODO: Finish Augmentation procedure ######
 
     # Instantiate the network and move it to the chosen device (GPU)
     net = OurCLIP(
@@ -49,6 +69,8 @@ def main_coop(
         backbone=backbone,
         csc=csc,
     ).to(device)
+
+    net =  load_pretrained_coop(backbone, net)
 
     print("Turning off gradients in both the image and the text encoder")
     for name, param in net.named_parameters():
