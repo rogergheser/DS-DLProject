@@ -7,7 +7,6 @@ from COOP.utils import get_optimizer, get_cost_function, log_values
 from COOP.functions import training_step, test_step
 from COOP.dataloader import get_data
 
-
 def main_coop(
     dataset_name="imagenet_a",
     backbone="RN50",
@@ -27,7 +26,15 @@ def main_coop(
     # Create a logger for the experiment
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
 
-    _, preprocess = clip.load(backbone, device=device)
+    # Get the model
+    if cocoop:
+        pass
+    else:
+        # Loading CoOp
+        model = load_coop()
+
+    # _, preprocess = clip.load(backbone, device=device)
+    
     # Get dataloaders
     train_loader, val_loader, test_loader, classnames, id2class = get_data(
         dataset_name, batch_size, preprocess

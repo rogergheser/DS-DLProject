@@ -17,9 +17,10 @@ import os
 from utils import get_index
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from torch.utils.tensorboard import SummaryWriter
+import pickle
 LOG_DIR = "tmp"
 
-def confusion_matrix(true_labels: list[int], predicted_labels: list[int], class_names: list[str], save_path:str=Optional[str])->tuple:
+def confusion_matrix(true_labels: list[int], predicted_labels: list[int], class_names: list[str], with_numbers:bool = False, save_path:str=Optional[str])->tuple:
     """
     Computes and returns the confusion matrix given a batch of images and labels
     Then plots the results
@@ -32,21 +33,23 @@ def confusion_matrix(true_labels: list[int], predicted_labels: list[int], class_
 
     cm = confusion_matrix_comp(true_labels, predicted_labels)
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(40, 40))
     cax = ax.matshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
     fig.colorbar(cax)
 
     tick_marks = np.arange(len(class_names))
-    plt.xticks(tick_marks, class_names, rotation=45)
-    plt.yticks(tick_marks, class_names)
-    thresh = cm.max() / 2.
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            plt.text(j, i, format(cm[i, j], 'd'), #d is decimal format: the values will be formatted as integers
-                    ha="center", va="center",color="white" if cm[i, j] > thresh else "black")
+    plt.xticks(tick_marks, class_names, rotation=90, fontsize=10)
+    plt.yticks(tick_marks, class_names, fontsize=10)
+    
+    if with_numbers:
+        thresh = cm.max() / 2.
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                plt.text(j, i, format(cm[i, j], 'd'), #d is decimal format: the values will be formatted as integers
+                        ha="center", va="center",color="white" if cm[i, j] > thresh else "black")
 
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
+    plt.ylabel('True label', fontsize=12)
+    plt.xlabel('Predicted label', fontsize=12)
     plt.tight_layout()
 
     return fig, cm
@@ -83,7 +86,19 @@ def average_class_error(cm, class_names: list[str], k:int = 1, save_path: Option
         plt.show()
     return class_wise_error
 
+def test_confusion_matrix(path:str):
+    import py_vars
+    true_labels, predicted_topk_labels, _ = pickle.load(open(path, "rb"))
+    true_labels = true_labels.cpu().numpy()
+    predicted_label = [i[0].item() for i in predicted_topk_labels]
+    fig, _ = confusion_matrix(true_labels, predicted_label, list(py_vars.num2class.values()))
+    idx = get_index(f"tmp/conf_mat")
+    fig.savefig(f"tmp/conf_mat/confusion_matrix{idx}.png")
+
 if __name__ == "__main__":
+    test_confusion_matrix("results/imagenet_A/run0.pkl")
+
+    exit(1)
     writer = SummaryWriter(LOG_DIR)
     true_labels = [0, 1, 2, 0, 1, 2, 0, 2]
     predicted_labels = [0, 1, 1, 0, 1, 2, 0, 2]

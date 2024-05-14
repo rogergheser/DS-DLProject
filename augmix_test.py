@@ -15,6 +15,7 @@ import numpy as np
 import pickle
 from utils import *
 import stats
+
 _datasets = {
     # "cifar100" : "./data/cifar100",
     "imagenet_A" : "./data/imagenet-a",
@@ -171,50 +172,53 @@ elif torch.backends.mps.is_available():
 else:
     device = "cpu"
 
+if __name__ == "__main__":
+    # mean = [0.485, 0.456, 0.406]
+    # std = [0.229, 0.224, 0.225]
+    no_transform = transforms.Compose([transforms.Resize(224),
+                                    transforms.CenterCrop(224),
+                                    transforms.ToTensor()])
 
-# mean = [0.485, 0.456, 0.406]
-# std = [0.229, 0.224, 0.225]
-no_transform = transforms.Compose([transforms.Resize(224),
-                                transforms.CenterCrop(224),
-                                transforms.ToTensor()])
-
-augmix_transform = transforms.Compose([transforms.Resize(224),
-                                transforms.CenterCrop(224),
-                                transforms.ToTensor(),
-                                ToUint8Transform(),
-                                # AugMix(severity=3, mixture_width=3, chain_depth=-1, alpha=1.0)
-        ])
+    augmix_transform = transforms.Compose([transforms.Resize(224),
+                                    transforms.CenterCrop(224),
+                                    transforms.ToTensor(),
+                                    ToUint8Transform(),
+                                    # AugMix(severity=3, mixture_width=3, chain_depth=-1, alpha=1.0)
+            ])
 
 
-model, preprocess = clip.load('ViT-B/16', device)
+    model, preprocess = clip.load('ViT-B/16', device)
 
-for _dataset in _datasets:
-    print("="*90)
-    loader, id2class = _loaders[_dataset](_datasets[_dataset], 256, preprocess)
-    
-    try:
-        top_1, top_5, true_labels, predicted_topk_labels, predicted_topk_confidence = eval(
-            loader, list(py_vars.num2class.values()), id2class, device, augmix=0)
-        true_labels.cpu()
-        predicted_topk_labels.cpu()
-        predicted_topk_confidence.cpu()
-        print(f"Top 1 accuracy of {_dataset}: {top_1}")
-        print(f"Top 5 accuracy of {_dataset}: {top_5}")
+    for _dataset in _datasets:
+        print("="*90)
+        loader, id2class = _loaders[_dataset](_datasets[_dataset], 256, preprocess)
         
-        idx = get_index(f"results/{_dataset}/run")
-        if not os.path.exists(f"results/{_dataset}"):
-            os.makedirs(f"results/{_dataset}")
-        pickle.dump((true_labels, predicted_topk_labels, predicted_topk_confidence), open(f"results/{_dataset}/run{idx}.pkl", "wb"))
-    except KeyboardInterrupt:
-        f"Stopped dataset of {_dataset} evaluation earlier"
+        try:
+            top_1, top_5, true_labels, predicted_topk_labels, predicted_topk_confidence = eval(
+                loader, list(py_vars.num2class.values()), id2class, device, augmix=0)
+            true_labels.cpu()
+            predicted_topk_labels.cpu()
+            predicted_topk_confidence.cpu()
+            print(f"Top 1 accuracy of {_dataset}: {top_1}")
+            print(f"Top 5 accuracy of {_dataset}: {top_5}")
+            
+            idx = get_index(f"results/{_dataset}")
+            if not os.path.exists(f"results/{_dataset}"):
+                os.makedirs(f"results/{_dataset}")
+            pickle.dump((true_labels, predicted_topk_labels, predicted_topk_confidence), open(f"results/{_dataset}/run{idx}.pkl", "wb"))
+        except KeyboardInterrupt:
+            f"Stopped dataset of {_dataset} evaluation earlier"
 
-    predicted_label = [i[0].item() for i in predicted_topk_labels]
-    fig, _ = stats.confusion_matrix(true_labels, predicted_label, list(py_vars.num2class.values()), f"results/{_dataset}/conf_mat")
-    fig.savefig(f"results/{_dataset}/conf_mat/confusion_matrix_{idx}.png")
-    # class_average_error = stats.average_class_error(cm)
+        predicted_label = [i[0].item() for i in predicted_topk_labels]
+        fig, _ = stats.confusion_matrix(true_labels, predicted_label, list(py_vars.num2class.values()), f"results/{_dataset}/conf_mat")
+        if not os.path.exists(f"results/{_dataset}/conf_mat"):
+            os.makedirs(f"results/{_dataset}/conf_mat")
+        idx = get_index(f"results/{_dataset}/conf_mat")
+        fig.savefig(f"results/{_dataset}/conf_mat/confusion_matrix_{idx}.png")
+        # class_average_error = stats.average_class_error(cm)
 
 
-    # writer.add_figure(f"Confusion Matrix {_dataset}", fig)
-    # writer.add_scalar(f"Top 1 accuracy {_dataset}", top_1)
-    # writer.add_scalar(f"Top 5 accuracy {_dataset}", top_5)
-    # writer.flush()
+        # writer.add_figure(f"Confusion Matrix {_dataset}", fig)
+        # writer.add_scalar(f"Top 1 accuracy {_dataset}", top_1)
+        # writer.add_scalar(f"Top 5 accuracy {_dataset}", top_5)
+        # writer.flush()
