@@ -55,3 +55,4 @@ def load_cifar100(path:str, batch_size:int, preprocess:transforms.Compose, shuff
         cifar100_loader = torch.utils.data.DataLoader(cifar100, batch_size=batch_size, shuffle=shuffle)
     id2class = {cifar100.class_to_idx[c] : c for c in cifar100.classes}
     return cifar100_loader, id2class
+

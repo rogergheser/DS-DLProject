@@ -22,6 +22,8 @@ def load_pretrained_coop(backbone, _model):
         _backbone = "vit_b32*"
     else:
         raise ValueError(f"Unknown backbone {backbone}")
+
+    #### !TODO #### Fix path string builder
     path = "bin/coop/rn50_ep50_16shots/nctx4_cscFalse_ctpend/seed1/prompt_learner/model.pth.tar-50"
 
     pretrained_ctx = torch.load(path, map_location='mps')['state_dict']['ctx']
@@ -35,7 +37,7 @@ def load_pretrained_coop(backbone, _model):
 def main_coop(
     dataset_name="imagenet_a",
     backbone="RN50",
-    batch_size=16,
+    batch_size=64,
     num_classes=10,
     device="mps",
     learning_rate=0.002,
