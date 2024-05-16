@@ -1,8 +1,32 @@
+import torch
 from torch.utils import data
 from torch.utils.data import random_split
 from torchvision import datasets
 import os
 import py_vars
+from loaders import Augmixer
+from typing import Optional
+
+def my_collate(batch):
+        # Unpack the batch
+        images, labels = zip(*batch)
+
+        # Remove the extra dimension and stack the images and labels
+        images = torch.stack([img.squeeze(0) for img in images]).squeeze(0)
+        labels = labels[0]
+
+        return images, labels
+
+class AugmixFolder(datasets.ImageFolder):
+    def __init__(self, root,transform):
+        super(AugmixFolder, self).__init__(root, transform=transform)
+        self.transform = transform
+        
+    def __getitem__(self, index):
+        img, label = super(AugmixFolder, self).__getitem__(index)
+        if isinstance(self.transform, Augmixer):
+            return img.squeeze(0), label
+        return img, label
 
 def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, val_size=0.1):
     """
@@ -18,18 +42,18 @@ def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, 
     """
     if dataset_name == "cifar10":
         download = not (os.path.exists(os.path.join("data/cifar-10-python")))
-        dataset = datasets.CIFAR10(root="./data", download=download, transform=transform)
+        dataset = AugmixFolder(root="./data", download=download, transform=transform)
         id2class = {dataset.class_to_idx[c] : c for c in dataset.classes}
     elif dataset_name == "cifar100":
         download = not (os.path.exists(os.path.join("data/cifar-100-python")))
-        dataset = datasets.CIFAR100(root="./data", download=download, transform=transform)
+        dataset = AugmixFolder(root="./data", download=download, transform=transform)
         id2class = {dataset.class_to_idx[c] : c for c in dataset.classes}
     elif dataset_name == "imagenet_v2":
-        dataset = datasets.ImageFolder(root="./data/imagenetv2-matched-frequency-format-val", transform=transform)
+        dataset = AugmixFolder(root="./data/imagenetv2-matched-frequency-format-val", transform=transform)
         dataset.class_to_idx = {cls: i for i, cls in enumerate(dataset.classes)}
         id2class = {dataset.class_to_idx[c] : py_vars.num2class_v2[int(c)] for c in dataset.classes}
     elif dataset_name == "imagenet_a":
-        dataset = datasets.ImageFolder(root="./data/imagenet-a", transform=transform)
+        dataset = AugmixFolder(root="./data/imagenet-a", transform=transform)
         dataset.class_to_idx = {cls: i for i, cls in enumerate(dataset.classes)}
         id2class = {dataset.class_to_idx[c] : py_vars.num2class[c] for c in dataset.classes}
     else:
@@ -42,12 +66,12 @@ def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, 
     
     if(n_train + n_val == 0):
         train_loader, val_loader = None, None
-        test_loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+        test_loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=my_collate)
     else:
         train_dataset, val_dataset, test_dataset = random_split(dataset, [n_train, n_val, n_test])
 
-        train_loader = data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
-        val_loader = data.DataLoader(val_dataset, batch_size=batch_size, shuffle=shuffle)
-        test_loader = data.DataLoader(test_dataset, batch_size=batch_size, shuffle=shuffle)
+        train_loader = data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=my_collate)
+        val_loader = data.DataLoader(val_dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=my_collate)
+        test_loader = data.DataLoader(test_dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=my_collate)
 
     return train_loader, val_loader, test_loader, list(id2class.values()), id2class

@@ -8,15 +8,13 @@ try:
 except ImportError:
     BICUBIC = Image.BICUBIC
 
-from TPT.data.datautils import AugMixAugmenter
-
 from CLIP import clip
 
 from COOP.models import OurCLIP
 from COOP.utils import get_optimizer, get_cost_function, log_values
 from COOP.functions import training_step, test_step
 from COOP.dataloader import get_data
-
+from loaders import Augmixer
 
 
 
@@ -24,7 +22,7 @@ def main_coop(
     dataset_name="imagenet_a",
     backbone="RN50",
     device="mps",
-    batch_size=1,
+    batch_size=64,
     learning_rate=0.002,
     weight_decay=0.0005,
     momentum=0.9,
@@ -40,23 +38,17 @@ def main_coop(
 
     _, preprocess = clip.load(backbone, device=device)
 
-    normalize = transforms.Normalize(mean=[0.48145466, 0.4578275, 0.40821073],
-                                     std=[0.26862954, 0.26130258, 0.27577711])
-    base_transform = transforms.Compose([
-                transforms.Resize(224, interpolation=BICUBIC),
-                transforms.CenterCrop(224)])
-    preprocess = transforms.Compose([
-        transforms.ToTensor(),
-        normalize])
-    data_transform = AugMixAugmenter(base_transform, preprocess, n_views=batch_size-1)
+    
+    data_transform = Augmixer(preprocess, batch_size)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
         dataset_name, 1, data_transform, train_size=0, val_size=0
     )
+    
 
     for i, (inputs, targets) in enumerate(test_loader):
         print(inputs.shape)
-        print(targets.shape)
+        print(targets)
 
     # Instantiate the network and move it to the chosen device (GPU)
     net = OurCLIP(

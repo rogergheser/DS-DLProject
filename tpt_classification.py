@@ -6,8 +6,9 @@
 import argparse
 from TPT.utils.tools import set_random_seed
 import loaders
+import CLIP.clip as clip
 _datasets = {
-    # "cifar100" : "./data/cifar100",
+    "cifar100" : "./data/cifar100",
     "imagenet_A" : "./data/imagenet-a",
     "imagenet_v2" : "./data/imagenetv2-matched-frequency-format-val" 
 }
@@ -35,12 +36,16 @@ def main(parser):
         model, preprocess = load_coop()
         # Loading CoOp
     else:
+        # Load backbone and train it
+        model, preprocess = clip.load(args.backbone, device=args.device)
         pass
 
     # Get dataloaders
-    train_loader, val_loader, test_loader, classnames, id2class = _loaders[args.dataset](
+    loader, id2class = _loaders[args.dataset](
         _datasets[args.dataset], args.batch_size, preprocess=preprocess, 
     )
+
+    # Define the optimizer
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train a model on the TPT dataset')
