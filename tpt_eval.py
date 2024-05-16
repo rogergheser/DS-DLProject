@@ -15,10 +15,78 @@ from COOP.utils import get_optimizer, get_cost_function, log_values
 from COOP.functions import training_step, test_step
 from COOP.dataloader import get_data
 from loaders import Augmixer
+from tqdm import tqdm
+from utils import entropy
+
+def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
+    inputs, targets = batch
+    # Set the network to training mode
+    net.train()
+
+    inputs = inputs.to(device)
+    targets = targets.to(device)
+
+    # Forward pass
+    outputs = net(inputs)
+
+    # Filter out the predictions with high entropy
+    entropies = [entropy(t).item() for t in outputs.softmax(-1)]
+    mean_entropy = sum(entropies) / len(entropies) 
+
+    outputs = outputs.softmax(-1)
+    entropies = [0 if val > mean_entropy else val for val in entropies]
+    filtered_outputs = torch.stack([outputs[i] if val > 0 else outputs[i] * 0 for i, val in enumerate(entropies) ])
+    predictions = torch.sum(filtered_outputs, dim=0)
+    prediction = torch.argmax(predictions, dim=0)
+    ## label of top prediction
+    ##  must feed the top prediction to the prompt learner
+    loss = cost_function(outputs, targets)
+    loss.backward()
+    optimizer.step()
+    optimizer.zero_grad()
+
+    return net
+
+def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="cuda"):
+    samples = 0.0
+    cumulative_loss = 0.0
+    cumulative_accuracy = 0.0
 
 
+    # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
+    pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
+    for batch_idx, (inputs, targets) in enumerate(data_loader):
+        trained_net = tta_net_train((inputs, targets), net, optimizer, cost_function, device=device)
+    # Set the network to evaluation mode
+        # Iterate over the test set
+        with torch.no_grad():
+            trained_net.eval()
+            # Load data into GPU
+            inputs = inputs.to(device)
+            targets = targets.to(device)
 
-def main_coop(
+            # Forward pass
+            outputs = trained_net(inputs)
+
+            # Loss computation
+            entropies = torch.nn.functional.log_softmax(outputs, dim=1)
+            
+            loss = cost_function(outputs, targets)
+
+            # Fetch prediction and loss value
+            samples += inputs.shape[0]
+            cumulative_loss += loss.item()
+            _, predicted = outputs.max(dim=1)  # max() returns (maximum_value, index_of_maximum_value)
+
+            # Compute training accuracy
+            cumulative_accuracy += predicted.eq(targets).sum().item()
+
+            pbar.set_postfix(test_loss=loss.item(), test_acc=cumulative_accuracy / samples * 100)
+            pbar.update(1)
+
+    return cumulative_loss / samples, cumulative_accuracy / samples * 100
+
+def main(
     dataset_name="imagenet_a",
     backbone="RN50",
     device="mps",
@@ -46,10 +114,6 @@ def main_coop(
     )
     
 
-    for i, (inputs, targets) in enumerate(test_loader):
-        print(inputs.shape)
-        print(targets)
-
     # Instantiate the network and move it to the chosen device (GPU)
     net = OurCLIP(
         classnames=classnames,
@@ -76,48 +140,9 @@ def main_coop(
     # Define the cost function
     cost_function = get_cost_function()
 
-    # Computes evaluation results before training
-    print("Before training:")
-    train_loss, train_accuracy = test_step(
-        net, train_loader, cost_function, device=device
-    )
-    val_loss, val_accuracy = test_step(net, val_loader, cost_function, device=device)
-    test_loss, test_accuracy = test_step(net, test_loader, cost_function, device=device)
 
-    # Log to TensorBoard
-    log_values(writer, -1, train_loss, train_accuracy, "train")
-    log_values(writer, -1, val_loss, val_accuracy, "validation")
-    log_values(writer, -1, test_loss, test_accuracy, "test")
-
-    print(f"\tTraining loss {train_loss:.5f}, Training accuracy {train_accuracy:.2f}")
-    print(f"\tValidation loss {val_loss:.5f}, Validation accuracy {val_accuracy:.2f}")
-    print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
-
-    # For each epoch, train the network and then compute evaluation results
-    for e in range(tta_steps):
-        train_loss, train_accuracy = training_step(
-            net, train_loader, optimizer, cost_function, device=device
-        )
-        val_loss, val_accuracy = test_step(
-            net, val_loader, cost_function, device=device
-        )
-
-        log_values(writer, e, train_loss, train_accuracy, "train")
-        log_values(writer, e, val_loss, val_accuracy, "validation")
-
-    # Compute final evaluation results
-    print("After training:")
-    train_loss, train_accuracy = test_step(
-        net, train_loader, cost_function, device=device
-    )
-    val_loss, val_accuracy = test_step(net, val_loader, cost_function, device=device)
-    test_loss, test_accuracy = test_step(net, test_loader, cost_function, device=device)
-
-    log_values(writer, tta_steps, train_loss, train_accuracy, "train")
-    log_values(writer, tta_steps, val_loss, val_accuracy, "validation")
-    log_values(writer, tta_steps, test_loss, test_accuracy, "test")
-    print(f"\tTraining loss {train_loss:.5f}, Training accuracy {train_accuracy:.2f}")
-    print(f"\tValidation loss {val_loss:.5f}, Validation accuracy {val_accuracy:.2f}")
+    print("Beginning testing with TPT:")
+    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, writer, device=device)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
 
     # Closes the logger
@@ -132,4 +157,4 @@ if __name__ == "__main__":
     else:
         DEVICE = "cpu"
 
-    main_coop(device=DEVICE)
+    main(device=DEVICE)

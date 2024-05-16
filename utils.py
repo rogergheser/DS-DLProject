@@ -5,6 +5,12 @@ import numpy as np
 import regex as re
 import os
 
+def entropy(p):
+    """
+    Given a tensor p representing a probability distribution, returns the entropy of the distribution
+    """
+    return -torch.sum(p * torch.log(p + 1e-8))
+
 def get_index(path):
     """
     Given a directory path, returns the highest index of the files in the directory or zero
