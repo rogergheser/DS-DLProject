@@ -31,12 +31,12 @@ def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
 
     # Filter out the predictions with high entropy
     entropies = [entropy(t).item() for t in outputs.softmax(-1)]
-    mean_entropy = sum(entropies) / len(entropies) 
+    mean_entropy = torch.mean(entropies)
 
     outputs = outputs.softmax(-1)
     entropies = [0 if val > mean_entropy else val for val in entropies]
     filtered_outputs = torch.stack([outputs[i] if val > 0 else outputs[i] * 0 for i, val in enumerate(entropies) ])
-    avg_predictions = torch.sum(filtered_outputs, dim=0)/len(filtered_outputs)
+    avg_predictions = torch.sum(filtered_outputs, dim=0)/len(filtered_outputs)  # not using mean cause we are not considering zero-ed rows
     loss = cost_function(avg_predictions, targets)
     loss.backward()
     optimizer.step()
@@ -67,11 +67,11 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
             # Loss computation
             outputs = outputs.softmax(-1)
             entropies = [entropy(t).item() for t in outputs]
-            mean_entropy = sum(entropies) / len(entropies) 
+            mean_entropy = torch.mean(entropies)
 
             entropies = [0 if val > mean_entropy else val for val in entropies]
             filtered_outputs = torch.stack([outputs[i] if val > 0 else outputs[i] * 0 for i, val in enumerate(entropies) ])
-            avg_predictions = torch.sum(filtered_outputs, dim=0)/len(filtered_outputs)
+            avg_predictions = torch.sum(filtered_outputs, dim=0)/len(filtered_outputs) # not using mean cause we are not considering zero-ed rows
             loss = cost_function(avg_predictions, targets)
 
             # Fetch prediction and loss value
