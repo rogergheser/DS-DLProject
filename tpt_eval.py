@@ -33,14 +33,15 @@ def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
 
     # Filter out the predictions with high entropy
     entropies = [entropy(t).item() for t in outputs.softmax(-1)]
-    mean_entropy = np.mean(entropies)
+    # Calculate the threshold for the lowest 10% entropies
+    threshold = np.percentile(entropies, 15)
 
     outputs = outputs.softmax(-1)
-    entropies = [0 if val > mean_entropy else val for val in entropies]
+    entropies = [0 if val > threshold else val for val in entropies]
     indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
     filtered_outputs = outputs[indices]
-    avg_predictions = torch.mean(filtered_outputs) 
-    loss = cost_function(avg_predictions, targets)
+    avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0) 
+    loss = cost_function(avg_predictions, targets)  #! Error because of the shape of the targets 0-dim tensor
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
@@ -55,9 +56,11 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
     # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
     pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
     for batch_idx, (inputs, targets) in enumerate(data_loader):
+        #Optimize prompts using TTA and augmentations
         trained_net = tta_net_train((inputs, targets), net, optimizer, cost_function, device=device)
-    # Set the network to evaluation mode
-        # Iterate over the test set
+
+        #Evaluate the trained prompts on the single sample
+        inputs = inputs[0]
         with torch.no_grad():
             trained_net.eval()
             # Load data into GPU
@@ -67,21 +70,13 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
             # Forward pass
             outputs = trained_net(inputs)
 
-            # Loss computation
-            outputs = outputs.softmax(-1)
-            entropies = [entropy(t).item() for t in outputs]
-            mean_entropy = np.mean(entropies)
-        ############## TODO ############## Change filtering
-            entropies = [0 if val > mean_entropy else val for val in entropies]
-            filtered_outputs = torch.stack([outputs[i] if val > 0 else outputs[i] * 0 for i, val in enumerate(entropies) ])
-            avg_predictions = torch.sum(filtered_outputs, dim=0)/len(filtered_outputs) # not using mean cause we are not considering zero-ed rows
-            loss = cost_function(avg_predictions, targets)
+            loss = cost_function(outputs, targets)
 
             # Fetch prediction and loss value
             # samples += inputs.shape[0]
             samples += 1 # In TTA we have augmentations of 64, so in reality we are passing a single sample
             cumulative_loss += loss.item()
-            _, predicted = avg_predictions.max(dim=0)  # max() returns (maximum_value, index_of_maximum_value)
+            _, predicted = outputs.max(dim=0)  # max() returns (maximum_value, index_of_maximum_value)
 
             # Compute training accuracy
             cumulative_accuracy += predicted.eq(targets).sum().item()
