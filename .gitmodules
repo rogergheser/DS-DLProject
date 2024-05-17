@@ -1,3 +1,6 @@
 [submodule "TPT"]
 	path = TPT
 	url = https://github.com/azshue/TPT.git
+[submodule "CLIP"]
+	path = CLIP
+	url = https://github.com/openai/CLIP.git
