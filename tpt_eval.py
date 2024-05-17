@@ -17,6 +17,8 @@ from COOP.dataloader import get_data
 from loaders import Augmixer
 from tqdm import tqdm
 from utils import entropy
+import numpy as np
+
 
 def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
     inputs, targets = batch
@@ -31,12 +33,13 @@ def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
 
     # Filter out the predictions with high entropy
     entropies = [entropy(t).item() for t in outputs.softmax(-1)]
-    mean_entropy = torch.mean(entropies)
+    mean_entropy = np.mean(entropies)
 
     outputs = outputs.softmax(-1)
     entropies = [0 if val > mean_entropy else val for val in entropies]
-    filtered_outputs = torch.stack([outputs[i] if val > 0 else outputs[i] * 0 for i, val in enumerate(entropies) ])
-    avg_predictions = torch.sum(filtered_outputs, dim=0)/len(filtered_outputs)  # not using mean cause we are not considering zero-ed rows
+    indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
+    filtered_outputs = outputs[indices]
+    avg_predictions = torch.mean(filtered_outputs) 
     loss = cost_function(avg_predictions, targets)
     loss.backward()
     optimizer.step()
@@ -67,8 +70,8 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
             # Loss computation
             outputs = outputs.softmax(-1)
             entropies = [entropy(t).item() for t in outputs]
-            mean_entropy = torch.mean(entropies)
-
+            mean_entropy = np.mean(entropies)
+        ############## TODO ############## Change filtering
             entropies = [0 if val > mean_entropy else val for val in entropies]
             filtered_outputs = torch.stack([outputs[i] if val > 0 else outputs[i] * 0 for i, val in enumerate(entropies) ])
             avg_predictions = torch.sum(filtered_outputs, dim=0)/len(filtered_outputs) # not using mean cause we are not considering zero-ed rows
@@ -112,7 +115,7 @@ def main(
     data_transform = Augmixer(preprocess, batch_size)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
-        dataset_name, 1, data_transform, train_size=0, val_size=0
+        dataset_name, 1, data_transform, train_size=0.8, val_size=0.15
     )
     
 
