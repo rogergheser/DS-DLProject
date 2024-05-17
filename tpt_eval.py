@@ -41,7 +41,8 @@ def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
     indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
     filtered_outputs = outputs[indices]
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0) 
-    loss = cost_function(avg_predictions, targets)  #! Error because of the shape of the targets 0-dim tensor
+
+    loss = cost_function(avg_predictions, targets)
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
@@ -60,15 +61,15 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
         trained_net = tta_net_train((inputs, targets), net, optimizer, cost_function, device=device)
 
         #Evaluate the trained prompts on the single sample
-        inputs = inputs[0]
+        original_sample = inputs[0].unsqueeze(0)
         with torch.no_grad():
             trained_net.eval()
             # Load data into GPU
-            inputs = inputs.to(device)
+            original_sample = original_sample.to(device)
             targets = targets.to(device)
 
             # Forward pass
-            outputs = trained_net(inputs)
+            outputs = trained_net(original_sample)
 
             loss = cost_function(outputs, targets)
 
@@ -76,7 +77,9 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
             # samples += inputs.shape[0]
             samples += 1 # In TTA we have augmentations of 64, so in reality we are passing a single sample
             cumulative_loss += loss.item()
+            #! check this function that return shape [200], instead of [1]
             _, predicted = outputs.max(dim=0)  # max() returns (maximum_value, index_of_maximum_value)
+
 
             # Compute training accuracy
             cumulative_accuracy += predicted.eq(targets).sum().item()

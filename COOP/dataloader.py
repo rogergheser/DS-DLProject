@@ -13,7 +13,7 @@ def my_collate(batch):
 
         # Remove the extra dimension and stack the images and labels
         images = torch.stack([img.squeeze(0) for img in images]).squeeze(0)
-        labels = torch.tensor(labels[0])
+        labels = torch.tensor(labels[0]).unsqueeze(0)
 
         return images, labels
 
