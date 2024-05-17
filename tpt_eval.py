@@ -54,11 +54,14 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
     cumulative_loss = 0.0
     cumulative_accuracy = 0.0
 
+    original_net = net
+    original_optimizer = optimizer
+
     # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
     pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
     for batch_idx, (inputs, targets) in enumerate(data_loader):
         #Optimize prompts using TTA and augmentations
-        trained_net = tta_net_train((inputs, targets), net, optimizer, cost_function, device=device)
+        trained_net = tta_net_train((inputs, targets), original_net, original_optimizer, cost_function, device=device)
 
         #Evaluate the trained prompts on the single sample
         original_sample = inputs[0].unsqueeze(0)
@@ -78,11 +81,10 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
             samples += 1 # In TTA we have augmentations of 64, so in reality we are passing a single sample
             cumulative_loss += loss.item()
             #! check this function that return shape [200], instead of [1]
-            _, predicted = outputs.max(dim=0)  # max() returns (maximum_value, index_of_maximum_value)
-
+            predicted = outputs.max()  # max() returns (maximum_value, index_of_maximum_value)
 
             # Compute training accuracy
-            cumulative_accuracy += predicted.eq(targets).sum().item()
+            cumulative_accuracy += predicted.eq(targets).item()
 
             pbar.set_postfix(test_loss=loss.item(), test_acc=cumulative_accuracy / samples * 100)
             pbar.update(1)
@@ -113,7 +115,7 @@ def main(
     data_transform = Augmixer(preprocess, batch_size)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
-        dataset_name, 1, data_transform, train_size=0.8, val_size=0.15
+        dataset_name, 1, data_transform, train_size=0, val_size=0
     )
     
 
