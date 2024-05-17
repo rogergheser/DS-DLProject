@@ -36,11 +36,8 @@ def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
     outputs = outputs.softmax(-1)
     entropies = [0 if val > mean_entropy else val for val in entropies]
     filtered_outputs = torch.stack([outputs[i] if val > 0 else outputs[i] * 0 for i, val in enumerate(entropies) ])
-    predictions = torch.sum(filtered_outputs, dim=0)
-    prediction = torch.argmax(predictions, dim=0)
-    ## label of top prediction
-    ##  must feed the top prediction to the prompt learner
-    loss = cost_function(outputs, targets)
+    avg_predictions = torch.sum(filtered_outputs, dim=0)/len(filtered_outputs)
+    loss = cost_function(avg_predictions, targets)
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
@@ -51,7 +48,6 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
     samples = 0.0
     cumulative_loss = 0.0
     cumulative_accuracy = 0.0
-
 
     # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
     pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
@@ -69,14 +65,20 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
             outputs = trained_net(inputs)
 
             # Loss computation
-            entropies = torch.nn.functional.log_softmax(outputs, dim=1)
-            
-            loss = cost_function(outputs, targets)
+            outputs = outputs.softmax(-1)
+            entropies = [entropy(t).item() for t in outputs]
+            mean_entropy = sum(entropies) / len(entropies) 
+
+            entropies = [0 if val > mean_entropy else val for val in entropies]
+            filtered_outputs = torch.stack([outputs[i] if val > 0 else outputs[i] * 0 for i, val in enumerate(entropies) ])
+            avg_predictions = torch.sum(filtered_outputs, dim=0)/len(filtered_outputs)
+            loss = cost_function(avg_predictions, targets)
 
             # Fetch prediction and loss value
-            samples += inputs.shape[0]
+            # samples += inputs.shape[0]
+            samples += 1 # In TTA we have augmentations of 64, so in reality we are passing a single sample
             cumulative_loss += loss.item()
-            _, predicted = outputs.max(dim=1)  # max() returns (maximum_value, index_of_maximum_value)
+            _, predicted = avg_predictions.max(dim=0)  # max() returns (maximum_value, index_of_maximum_value)
 
             # Compute training accuracy
             cumulative_accuracy += predicted.eq(targets).sum().item()
