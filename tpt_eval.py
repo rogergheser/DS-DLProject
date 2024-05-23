@@ -58,6 +58,8 @@ def batch_report(input, outputs, targets, id2classes):
     # Fetch prediction and loss value
     # prediction = outputs.argmax(dim=1)
     probabilities, predictions = outputs.cpu().topk(5)
+    probabilities = probabilities.detach().numpy()
+    predictions = predictions.detach()
     # text_str = f"True label: {id2classes[targets[0].item()]}\n"
     # text_str += "Predicted labels:\n"
     # for i, (p, pred) in enumerate(zip(probabilities[0], predictions[0])):
