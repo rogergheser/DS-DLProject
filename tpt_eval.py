@@ -18,10 +18,50 @@ from loaders import Augmixer
 from tqdm import tqdm
 from utils import entropy
 import numpy as np
-from utils import show_image
+
+def batch_report(inputs, outputs, targets, id2classes, batch_n):
+    from matplotlib import pyplot as plt
+    # Fetch prediction and loss value
+    # prediction = outputs.argmax(dim=1)
+    probabilities, predictions = outputs.cpu().topk(5)
+    probabilities = probabilities.detach().numpy()
+    predictions = predictions.detach()
+
+    clip_mean = [0.48145466, 0.4578275, 0.40821073]
+    clip_std = [0.26862954, 0.26130258, 0.27577711]
+
+    mean = torch.tensor(clip_mean).reshape(1, 3, 1, 1)
+    std = torch.tensor(clip_std).reshape(1, 3, 1, 1)
+
+    # Denormalize the batch of images
+    denormalized_images = inputs.cpu() * std + mean
+
+    # Visualise the input using matplotlib
+    images = [image.numpy().astype('uint8').transpose(1, 2, 0) for image in denormalized_images] # Convert to numpy and transpose to (H, W, C)
+
+    # Visualise the input using matplotlib
+    label = id2classes[targets[0].item()]
+    plt.figure(figsize=(16,10))
+    plt.title(f"Image batch of {label} - 8/{len(images)} selected")
+
+    for i, image in enumerate(images[:8]):
+        plt.subplot(4,4, 2*i+1)
+        plt.imshow(image)
+        plt.axis('off')
+
+        plt.subplot(4,4, 2*i+2)
+        y = np.arange(probabilities.shape[-1])
+        plt.grid()
+        plt.barh(y, probabilities[i])
+        plt.gca().invert_yaxis()
+        plt.gca().set_axisbelow(True)
+        plt.yticks(y, [id2classes[index] for index in predictions[i].numpy()])
+        plt.xlabel("probability")
+
+    plt.savefig(f"batch_reports/Batch{batch_n}.png")
 
 def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda"):
-    inputs, targets = batch
+    batch_idx, inputs, targets = batch
     # Set the network to training mode
     net.train()
 
@@ -44,7 +84,7 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
 
     # show batch
-    batch_report(filtered_inputs, filtered_outputs, targets, id2classes)
+    batch_report(filtered_inputs, filtered_outputs, targets, id2classes, batch_n=batch_idx)
 
     loss = cost_function(avg_predictions, targets)
     loss.backward()
@@ -52,41 +92,6 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
     optimizer.zero_grad()
 
     return net
-
-def batch_report(input, outputs, targets, id2classes):
-    from matplotlib import pyplot as plt
-    # Fetch prediction and loss value
-    # prediction = outputs.argmax(dim=1)
-    probabilities, predictions = outputs.cpu().topk(5)
-    probabilities = probabilities.detach().numpy()
-    predictions = predictions.detach()
-    # text_str = f"True label: {id2classes[targets[0].item()]}\n"
-    # text_str += "Predicted labels:\n"
-    # for i, (p, pred) in enumerate(zip(probabilities[0], predictions[0])):
-    #     text_str += f"{id2classes[pred.item()]}: {p:.2f}\n"
-
-    # Visualise the input using matplotlib
-    images = [image.numpy().astype(np.uint8).transpose(1, 2, 0) for image in input] # Convert to numpy and transpose to (H, W, C)
-    label = id2classes[targets[0].item()]
-    plt.title(f"Image batch of {label}")
-    plt.figure(figsize=(16,10))
-
-    for i, image in enumerate(images):
-        plt.subplot(1, len(images)*2, 2*i+1)
-        plt.imshow(image)
-        plt.axis('off')
-
-        plt.subplot(1, len(images)*2, 2*i+2)
-        y = np.arange(probabilities.shape[-1])
-        plt.grid()
-        plt.barh(y, probabilities[i])
-        plt.gca().invert_yaxis()
-        plt.gca().set_axisbelow(True)
-        plt.yticks(y, [id2classes[index] for index in predictions[i].numpy()])
-        plt.xlabel("probability")
-
-    plt.show()
-
 
 def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classes, device="cuda"):
     samples = 0.0
@@ -101,7 +106,7 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
     pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
     for batch_idx, (inputs, targets) in enumerate(data_loader):
         #Optimize prompts using TTA and augmentations
-        trained_net = tta_net_train((inputs, targets), original_net, original_optimizer, cost_function, id2classes, device=device)
+        trained_net = tta_net_train((batch_idx, inputs, targets), original_net, original_optimizer, cost_function, id2classes, device=device)
 
         #Evaluate the trained prompts on the single sample
         original_sample = inputs[0].unsqueeze(0)
