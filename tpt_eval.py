@@ -18,9 +18,9 @@ from loaders import Augmixer
 from tqdm import tqdm
 from utils import entropy
 import numpy as np
-from utils import show_image, show_image_batch
+from utils import show_image
 
-def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
+def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda"):
     inputs, targets = batch
     # Set the network to training mode
     net.train()
@@ -40,7 +40,11 @@ def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
     entropies = [0 if val > threshold else val for val in entropies]
     indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
     filtered_outputs = outputs[indices]
-    avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0) 
+    filtered_inputs = inputs[indices]
+    avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
+
+    # show batch
+    batch_report(filtered_inputs, filtered_outputs, targets, id2classes)
 
     loss = cost_function(avg_predictions, targets)
     loss.backward()
@@ -50,16 +54,36 @@ def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
     return net
 
 def batch_report(input, outputs, targets, id2classes):
+    from matplotlib import pyplot as plt
     # Fetch prediction and loss value
-    prediction = outputs.argmax(dim=1)
-    probabilities, predictions = outputs.topk(5)
-    text_str = f"True label: {id2classes[targets[0].item()]}\n"
-    text_str += "Predicted labels:\n"
-    for i, (p, pred) in enumerate(zip(probabilities[0], predictions[0])):
-        text_str += f"{id2classes[pred.item()]}: {p:.2f}\n"
+    # prediction = outputs.argmax(dim=1)
+    probabilities, predictions = outputs.cpu().topk(5)
+    # text_str = f"True label: {id2classes[targets[0].item()]}\n"
+    # text_str += "Predicted labels:\n"
+    # for i, (p, pred) in enumerate(zip(probabilities[0], predictions[0])):
+    #     text_str += f"{id2classes[pred.item()]}: {p:.2f}\n"
+
     # Visualise the input using matplotlib
-    show_image_batch(input, id2classes[targets[0].item()], text_str)
-    
+    images = [image.numpy().astype(np.uint8).transpose(1, 2, 0) for image in input] # Convert to numpy and transpose to (H, W, C)
+    label = id2classes[targets[0].item()]
+    plt.title(f"Image batch of {label}")
+    plt.figure(figsize=(16,10))
+
+    for i, image in enumerate(images):
+        plt.subplot(1, len(images)*2, 2*i+1)
+        plt.imshow(image)
+        plt.axis('off')
+
+        plt.subplot(1, len(images)*2, 2*i+2)
+        y = np.arange(probabilities.shape[-1])
+        plt.grid()
+        plt.barh(y, probabilities[i])
+        plt.gca().invert_yaxis()
+        plt.gca().set_axisbelow(True)
+        plt.yticks(y, [id2classes[index] for index in predictions[i].numpy()])
+        plt.xlabel("probability")
+
+    plt.show()
 
 
 def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classes, device="cuda"):
@@ -75,7 +99,7 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
     pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
     for batch_idx, (inputs, targets) in enumerate(data_loader):
         #Optimize prompts using TTA and augmentations
-        trained_net = tta_net_train((inputs, targets), original_net, original_optimizer, cost_function, device=device)
+        trained_net = tta_net_train((inputs, targets), original_net, original_optimizer, cost_function, id2classes, device=device)
 
         #Evaluate the trained prompts on the single sample
         original_sample = inputs[0].unsqueeze(0)
@@ -102,9 +126,6 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
                 top1 += 1
             if targets.item() in predictions:
                 top5 += (targets.view(-1, 1) == predictions).sum().item()
-            
-            # show batch
-            batch_report(inputs, outputs, targets, id2classes)
 
             pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100, top5=top5/samples * 100)
             pbar.update(1)

@@ -13,18 +13,6 @@ def show_image(image, label):
     plt.imshow(img)
     plt.show()
 
-def show_image_batch(images, label, text_str=""):
-    images = [image.numpy() for image in images]
-    plt.title(f"Image batch of {label}")
-    fig, axs = plt.subplots(1, len(images))
-    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-    axs[0].text(0.05, 0.95, text_str, fontsize=8,
-    verticalalignment='top', bbox=props)
-    for i, image in enumerate(images):
-        img = np.transpose(image.astype(np.uint8), (1, 2, 0))
-        axs[i].imshow(img)
-    plt.show()
-
 def entropy(p):
     """
     Given a tensor p representing a probability distribution, returns the entropy of the distribution
