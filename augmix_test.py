@@ -154,13 +154,7 @@ def eval(loader: torch.utils.data.DataLoader,
     predicted_topk_confidence = torch.stack([x.cpu() for x in predicted_topk_confidence])  
     
     return correct / total, topk_correct / topk_total, true_labels, predicted_topk_labels, predicted_topk_confidence
-
-def show_image(image, label):
-    image = image.numpy()
-    plt.title(f"Image of {label}")
-    img = np.transpose((image * 255).astype(np.uint8), (1, 2, 0))
-    plt.imshow(img)
-    plt.show()
+    
 
 all_wnids = py_vars.all_wnids
 

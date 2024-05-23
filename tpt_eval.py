@@ -18,7 +18,7 @@ from loaders import Augmixer
 from tqdm import tqdm
 from utils import entropy
 import numpy as np
-
+from utils import show_image, show_image_batch
 
 def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
     inputs, targets = batch
@@ -49,11 +49,25 @@ def tta_net_train(batch, net, optimizer, cost_function, device="cuda"):
 
     return net
 
-def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="cuda"):
+def batch_report(input, outputs, targets, id2classes):
+    # Fetch prediction and loss value
+    prediction = outputs.argmax(dim=1)
+    probabilities, predictions = outputs.topk(5)
+    text_str = f"True label: {id2classes[targets[0].item()]}\n"
+    text_str += "Predicted labels:\n"
+    for i, (p, pred) in enumerate(zip(probabilities[0], predictions[0])):
+        text_str += f"{id2classes[pred.item()]}: {p:.2f}\n"
+    # Visualise the input using matplotlib
+    show_image_batch(input, id2classes[targets[0].item()], text_str)
+    
+
+
+def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classes, device="cuda"):
     samples = 0.0
     cumulative_loss = 0.0
     cumulative_accuracy = 0.0
-
+    top1 = 0
+    top5 = 0
     original_net = net
     original_optimizer = optimizer
 
@@ -81,12 +95,18 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, device="c
             samples += 1 # In TTA we have augmentations of 64, so in reality we are passing a single sample
             cumulative_loss += loss.item()
             #! check this function that return shape [200], instead of [1]
-            predicted = outputs.max()  # max() returns (maximum_value, index_of_maximum_value)
+            prediction = outputs.argmax(dim=1)
+            values, predictions = outputs.topk(5)
 
-            # Compute training accuracy
-            cumulative_accuracy += predicted.eq(targets).item()
+            if prediction == targets:
+                top1 += 1
+            if targets.item() in predictions:
+                top5 += (targets.view(-1, 1) == predictions).sum().item()
+            
+            # show batch
+            batch_report(inputs, outputs, targets, id2classes)
 
-            pbar.set_postfix(test_loss=loss.item(), test_acc=cumulative_accuracy / samples * 100)
+            pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100, top5=top5/samples * 100)
             pbar.update(1)
 
     return cumulative_loss / samples, cumulative_accuracy / samples * 100
@@ -147,7 +167,7 @@ def main(
 
 
     print("Beginning testing with TPT:")
-    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, writer, device=device)
+    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, writer, id2classes=id2class, device=device)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
 
     # Closes the logger
