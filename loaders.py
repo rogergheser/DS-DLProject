@@ -68,14 +68,12 @@ class Augmixer():
         
         
     def __call__(self, img):
-        img = self.preprocess(img)
+        # img = self.preprocess(img)
         if torch.is_tensor(img):
             if not img.dtype == torch.uint8:
                 img = img.mul(255).byte()
             assert img.dtype == torch.uint8, "Image must be of type uint8"            
-        elif isinstance(img, Image):
-            assert img.mode in ['RGB', 'L'], "Image must be in RGB or L mode"
 
-        augmentations = [self.augmenter(img) for n in range(self.batch_size-1)]
-        res = [img] + augmentations
+        augmentations = [self.preprocess(self.augmenter(img)) for n in range(self.batch_size-1)]
+        res = [self.preprocess(img)] + augmentations
         return torch.stack(res).squeeze(0)

@@ -19,10 +19,8 @@ from tqdm import tqdm
 from utils import entropy
 import numpy as np
 
-def batch_report(inputs, outputs, targets, id2classes, batch_n):
+def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n):
     from matplotlib import pyplot as plt
-    # Fetch prediction and loss value
-    # prediction = outputs.argmax(dim=1)
     probabilities, predictions = outputs.cpu().topk(5)
     probabilities = probabilities.detach().numpy()
     predictions = predictions.detach()
@@ -34,22 +32,26 @@ def batch_report(inputs, outputs, targets, id2classes, batch_n):
     std = torch.tensor(clip_std).reshape(1, 3, 1, 1)
 
     # Denormalize the batch of images
-    denormalized_images = inputs.cpu() * std + mean
+    # denormalized_images = inputs.cpu() * std + mean
+    # denormalized_images = denormalized_images.numpy().astype('uint8')
+    unnormalize = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
+    denormalized_images = unnormalize(inputs)
 
     # Visualise the input using matplotlib
-    images = [image.numpy().astype('uint8').transpose(1, 2, 0) for image in denormalized_images] # Convert to numpy and transpose to (H, W, C)
+    images = [image.numpy().transpose(1, 2, 0) for image in denormalized_images.cpu()] # Convert to numpy and transpose to (H, W, C)
 
     # Visualise the input using matplotlib
     label = id2classes[targets[0].item()]
-    plt.figure(figsize=(16,10))
-    plt.title(f"Image batch of {label} - 8/{len(images)} selected")
+    plt.figure(figsize=(16,16))
+    plt.title(f"Image batch of {label} - min entropy {len(images)} samples selected")
+    plt.axis('off')
 
-    for i, image in enumerate(images[:8]):
-        plt.subplot(4,4, 2*i+1)
+    for i, image in enumerate(images):
+        plt.subplot(6,4, 2*i+1)
         plt.imshow(image)
         plt.axis('off')
 
-        plt.subplot(4,4, 2*i+2)
+        plt.subplot(6,4, 2*i+2)
         y = np.arange(probabilities.shape[-1])
         plt.grid()
         plt.barh(y, probabilities[i])
@@ -57,6 +59,20 @@ def batch_report(inputs, outputs, targets, id2classes, batch_n):
         plt.gca().set_axisbelow(True)
         plt.yticks(y, [id2classes[index] for index in predictions[i].numpy()])
         plt.xlabel("probability")
+    
+    avg_prob, avg_pred = final_prediction.cpu().topk(5)
+    avg_prob = avg_prob.detach().numpy()
+    avg_pred = avg_pred.detach()
+    plt.subplot(6,4,20)
+    y = np.arange(avg_prob.shape[-1])
+    plt.grid()
+    plt.barh(y, avg_prob)
+    plt.gca().invert_yaxis()
+    plt.gca().set_axisbelow(True)
+    plt.yticks(y, [id2classes[index] for index in avg_predictions.numpy()])
+    plt.xlabel("probability")
+
+    
 
     plt.savefig(f"batch_reports/Batch{batch_n}.png")
 
@@ -84,7 +100,7 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
 
     # show batch
-    batch_report(filtered_inputs, filtered_outputs, targets, id2classes, batch_n=batch_idx)
+    batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
 
     loss = cost_function(avg_predictions, targets)
     loss.backward()
@@ -156,6 +172,7 @@ def main(
 ):
     # Create a logger for the experiment
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
+
 
     _, preprocess = clip.load(backbone, device=device)
 
