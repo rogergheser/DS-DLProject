@@ -43,10 +43,10 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
     # Visualise the input using matplotlib
     label = id2classes[targets[0].item()]
     plt.figure(figsize=(16,16))
-    plt.title(f"Image batch of {label} - min entropy {len(images)} samples selected")
+    plt.title(f"Image batch of {label} - min entropy 10 samples selected")
     plt.axis('off')
 
-    for i, image in enumerate(images):
+    for i, image in enumerate(images[:10]):
         plt.subplot(6,4, 2*i+1)
         plt.imshow(image)
         plt.axis('off')
@@ -63,19 +63,17 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
     avg_prob, avg_pred = final_prediction.cpu().topk(5)
     avg_prob = avg_prob.detach().numpy()
     avg_pred = avg_pred.detach()
-    plt.subplot(6,4,20)
+    plt.subplot(6,4,22)
     y = np.arange(avg_prob.shape[-1])
     plt.grid()
-    plt.barh(y, avg_prob)
+    plt.barh(y, avg_prob[0])
     plt.gca().invert_yaxis()
     plt.gca().set_axisbelow(True)
-    plt.yticks(y, [id2classes[index] for index in avg_predictions.numpy()])
-    plt.xlabel("probability")
-
-    
+    plt.yticks(y, [id2classes[index] for index in avg_pred[0].numpy()])
+    plt.xlabel("Final prediction (avg entropy)")    
+    plt.close()
 
     plt.savefig(f"batch_reports/Batch{batch_n}.png")
-
 def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda"):
     batch_idx, inputs, targets = batch
     # Set the network to training mode
@@ -180,7 +178,7 @@ def main(
     data_transform = Augmixer(preprocess, batch_size)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
-        dataset_name, 1, data_transform, train_size=0, val_size=0
+        dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=False
     )
     
 
