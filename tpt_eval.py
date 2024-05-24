@@ -18,6 +18,7 @@ from loaders import Augmixer
 from tqdm import tqdm
 from utils import entropy
 import numpy as np
+import copy
 
 def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n):
     from matplotlib import pyplot as plt
@@ -57,7 +58,7 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
         plt.barh(y, probabilities[i])
         plt.gca().invert_yaxis()
         plt.gca().set_axisbelow(True)
-        plt.yticks(y, [id2classes[index] for index in predictions[i].numpy()])
+        plt.yticks(y, [id2classes[pred] for pred in predictions[i].numpy()])
         plt.xlabel("probability")
     
     avg_prob, avg_pred = final_prediction.cpu().topk(5)
@@ -105,7 +106,7 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
     optimizer.step()
     optimizer.zero_grad()
 
-    return net
+    return net.state_dict()
 
 def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classes, device="cuda"):
     samples = 0.0
@@ -113,36 +114,30 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
     cumulative_accuracy = 0.0
     top1 = 0
     top5 = 0
-    original_net = net
-    original_optimizer = optimizer
+    original_net_state = net.state_dict()
+    original_optimizer_state = optimizer.state_dict()
 
     # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
     pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
     for batch_idx, (inputs, targets) in enumerate(data_loader):
-        #Optimize prompts using TTA and augmentations
-        trained_net = tta_net_train((batch_idx, inputs, targets), original_net, original_optimizer, cost_function, id2classes, device=device)
+        # Optimize prompts using TTA and augmentations
+        # TODO: Implement TTA step in a single function
+        net.load_state_dict(original_net_state)
+        optimizer.load_state_dict(original_optimizer_state)
+        new_net_state_dict = tta_net_train((batch_idx, inputs, targets), net, optimizer, cost_function, id2classes, device=device)
 
-        #Evaluate the trained prompts on the single sample
-        original_sample = inputs[0].unsqueeze(0)
+        # Evaluate the trained prompts on the single sample
+        net.load_state_dict(new_net_state_dict)
+        net.eval()
         with torch.no_grad():
-            trained_net.eval()
-            # Load data into GPU
-            original_sample = original_sample.to(device)
+            inputs = inputs[0].unsqueeze(0).to(device)
             targets = targets.to(device)
-
-            # Forward pass
-            outputs = trained_net(original_sample)
-
+            outputs = net(inputs)
             loss = cost_function(outputs, targets)
-
-            # Fetch prediction and loss value
-            # samples += inputs.shape[0]
-            samples += 1 # In TTA we have augmentations of 64, so in reality we are passing a single sample
             cumulative_loss += loss.item()
-            #! check this function that return shape [200], instead of [1]
+            samples += 1
             prediction = outputs.argmax(dim=1)
             values, predictions = outputs.topk(5)
-
             if prediction == targets:
                 top1 += 1
             if targets.item() in predictions:
@@ -175,7 +170,7 @@ def main(
     _, preprocess = clip.load(backbone, device=device)
 
     
-    data_transform = Augmixer(preprocess, batch_size)
+    data_transform = Augmixer(preprocess, batch_size, severity=1)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
         dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=True
