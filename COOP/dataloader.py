@@ -63,6 +63,8 @@ def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, 
     n_train = int(train_size * n)
     n_val = int(val_size * n)
     n_test = n - n_train - n_val
+
+    torch.manual_seed(0)
     
     if(n_train + n_val == 0):
         train_loader, val_loader = None, None

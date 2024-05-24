@@ -61,7 +61,7 @@ def load_cifar100(path:str, batch_size:int, preprocess:transforms.Compose, shuff
     return cifar100_loader, id2class
 
 class Augmixer():
-    def __init__(self, preprocess:transforms.Compose, batch_size:int=64, severity: int = 3, mixture_width: int = 3, chain_depth: int = 1, alpha: float = 1.0):
+    def __init__(self, preprocess:transforms.Compose, batch_size:int=64, severity: int = 3, mixture_width: int = 5, chain_depth: int = 1, alpha: float = 0.3):
         self.preprocess = preprocess
         self.batch_size = batch_size
         self.augmenter = v2.AugMix(severity=severity, mixture_width=mixture_width, chain_depth=chain_depth, alpha=alpha)
@@ -74,6 +74,6 @@ class Augmixer():
                 img = img.mul(255).byte()
             assert img.dtype == torch.uint8, "Image must be of type uint8"            
 
-        augmentations = [self.preprocess(self.augmenter(img)) for n in range(self.batch_size-1)]
+        augmentations = [self.preprocess(self.augmenter(img)) for _ in range(self.batch_size-1)]
         res = [self.preprocess(img)] + augmentations
         return torch.stack(res).squeeze(0)

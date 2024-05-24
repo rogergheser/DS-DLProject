@@ -71,9 +71,9 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
     plt.gca().set_axisbelow(True)
     plt.yticks(y, [id2classes[index] for index in avg_pred[0].numpy()])
     plt.xlabel("Final prediction (avg entropy)")    
-    plt.close()
 
     plt.savefig(f"batch_reports/Batch{batch_n}.png")
+    plt.close()
 def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda"):
     batch_idx, inputs, targets = batch
     # Set the network to training mode
@@ -178,7 +178,7 @@ def main(
     data_transform = Augmixer(preprocess, batch_size)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
-        dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=False
+        dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=True
     )
     
 
