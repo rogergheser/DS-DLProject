@@ -18,7 +18,7 @@ from loaders import Augmixer
 from tqdm import tqdm
 from utils import entropy
 import numpy as np
-import copy
+
 
 def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n):
     from matplotlib import pyplot as plt
@@ -75,6 +75,8 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
 
     plt.savefig(f"batch_reports/Batch{batch_n}.png")
     plt.close()
+
+    
 def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda"):
     batch_idx, inputs, targets = batch
     # Set the network to training mode
@@ -106,7 +108,7 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
     optimizer.step()
     optimizer.zero_grad()
 
-    return net.state_dict()
+    return loss.item()
 
 def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classes, device="cuda"):
     samples = 0.0
@@ -114,20 +116,16 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
     cumulative_accuracy = 0.0
     top1 = 0
     top5 = 0
-    original_net_state = net.state_dict()
-    original_optimizer_state = optimizer.state_dict()
 
     # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
     pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
     for batch_idx, (inputs, targets) in enumerate(data_loader):
         # Optimize prompts using TTA and augmentations
         # TODO: Implement TTA step in a single function
-        net.load_state_dict(original_net_state)
-        optimizer.load_state_dict(original_optimizer_state)
-        new_net_state_dict = tta_net_train((batch_idx, inputs, targets), net, optimizer, cost_function, id2classes, device=device)
+        
+        _loss = tta_net_train((batch_idx, inputs, targets), net, optimizer, cost_function, id2classes, device=device)
 
         # Evaluate the trained prompts on the single sample
-        net.load_state_dict(new_net_state_dict)
         net.eval()
         with torch.no_grad():
             inputs = inputs[0].unsqueeze(0).to(device)
@@ -145,6 +143,8 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
 
             pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100, top5=top5/samples * 100)
             pbar.update(1)
+        
+        net.reset()
 
     return cumulative_loss / samples, cumulative_accuracy / samples * 100
 

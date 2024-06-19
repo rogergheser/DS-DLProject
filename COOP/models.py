@@ -54,6 +54,7 @@ class PromptLearner(nn.Module):
         print(f"Initial context: '{prompt_prefix}'")
         print(f"Number of context words (tokens): {n_ctx}")
 
+        self.ctx_init_state = ctx_vectors.data
         # These are the `prompts` we want to optimize
         self.ctx = nn.Parameter(ctx_vectors)
 
@@ -151,6 +152,14 @@ class PromptLearner(nn.Module):
 
         return prompts
     
+    def reset(self):
+        ctx_vectors = self.ctx_init_state
+        with torch.no_grad():
+            self.ctx.copy_(ctx_vectors) # to be optimized
+        # if self.learned_cls:
+        #     cls_vectors = self.cls_init_state
+        #     self.cls.copy_(cls_vectors)
+
 class OurCLIP(nn.Module):
 
     def __init__(self, classnames, n_ctx, ctx_init, class_token_position, backbone="RN50", csc=False):
@@ -179,3 +188,6 @@ class OurCLIP(nn.Module):
         logits = logit_scale * image_features @ text_features.t()
 
         return logits
+    
+    def reset(self):
+        self.prompt_learner.reset()

@@ -65,8 +65,7 @@ class Augmixer():
         self.preprocess = preprocess
         self.batch_size = batch_size
         self.augmenter = v2.AugMix(severity=severity, mixture_width=mixture_width, chain_depth=chain_depth, alpha=alpha)
-        
-        
+    
     def __call__(self, img):
         # img = self.preprocess(img)
         if torch.is_tensor(img):

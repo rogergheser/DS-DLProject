@@ -1,5 +1,3 @@
-
-
 def int_parameter(level, maxval):
     import TPT.data.augmix_ops 
     return TPT.data.augmix_ops.int_parameter(level, maxval)
