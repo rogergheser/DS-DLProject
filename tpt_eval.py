@@ -37,7 +37,7 @@ def load_pretrained_coop(backbone, _model):
     assert os.path.exists(path), f"Path {path} does not exist"
 
     pretrained_ctx = torch.load(path, DEVICE)['state_dict']['ctx']
-    assert pretrained_ctx.size()[0] == _model.prompt_learner.n_ctx, f"Number of context tokens mismatch: {_model.n_ctx} vs {pretrained_ctx.size()[0]}"
+    assert pretrained_ctx.size()[0] == _model.prompt_learner.n_ctx, f"Number of context tokens mismatch: {_model.prompt_learner.n_ctx} vs {pretrained_ctx.size()[0]}"
     with torch.no_grad():
         _model.prompt_learner.ctx.copy_(pretrained_ctx)
         _model.prompt_learner.ctx_init_state = pretrained_ctx
