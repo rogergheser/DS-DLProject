@@ -72,7 +72,7 @@ def main_coop(
         csc=csc,
     ).to(device)
 
-    net =  load_pretrained_coop(backbone, net)
+    net = load_pretrained_coop(backbone, net)
 
     print("Turning off gradients in both the image and the text encoder")
     for name, param in net.named_parameters():

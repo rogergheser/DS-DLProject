@@ -54,7 +54,7 @@ class PromptLearner(nn.Module):
         print(f"Initial context: '{prompt_prefix}'")
         print(f"Number of context words (tokens): {n_ctx}")
 
-        self.ctx_init_state = ctx_vectors.data
+        self.ctx_init_state = ctx_vectors.detach().clone()
         # These are the `prompts` we want to optimize
         self.ctx = nn.Parameter(ctx_vectors)
 

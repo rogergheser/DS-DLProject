@@ -1,4 +1,5 @@
 import torch
+import os
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
 import torchvision.transforms as transforms
@@ -18,6 +19,30 @@ from loaders import Augmixer
 from tqdm import tqdm
 from utils import entropy
 import numpy as np
+
+def load_pretrained_coop(backbone, _model):
+    if backbone.lower() == "rn50":
+        _backbone = "rn50"
+    elif backbone.lower() == "rn101":
+        _backbone = "rn101"
+    elif backbone.lower() == "vit_b16":
+        _backbone = "vit_b16"
+    elif backbone.lower() == "vit_b32":
+        _backbone = "vit_b32"
+    else:
+        raise ValueError(f"Unknown backbone {backbone}")
+
+    #### !TODO #### Fix path string builder
+    path = f"bin/coop/{_backbone}_ep50_16shots/nctx4_cscFalse_ctpend/seed1/prompt_learner/model.pth.tar-50"
+    assert os.path.exists(path), f"Path {path} does not exist"
+
+    pretrained_ctx = torch.load(path, DEVICE)['state_dict']['ctx']
+    assert pretrained_ctx.size()[0] == _model.prompt_learner.n_ctx, f"Number of context tokens mismatch: {_model.n_ctx} vs {pretrained_ctx.size()[0]}"
+    with torch.no_grad():
+        _model.prompt_learner.ctx.copy_(pretrained_ctx)
+        _model.prompt_learner.ctx_init_state = pretrained_ctx
+
+    return _model
 
 
 def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n):
@@ -186,6 +211,8 @@ def main(
         backbone=backbone,
         csc=csc,
     ).to(device)
+
+    net = load_pretrained_coop(backbone, net)
 
     print("Turning off gradients in both the image and the text encoder")
     for name, param in net.named_parameters():
