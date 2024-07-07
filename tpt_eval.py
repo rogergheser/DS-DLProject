@@ -216,7 +216,7 @@ def main(
     optimizer = get_optimizer(net, learning_rate)
 
     print("Turning off gradients in both the image and the text encoder")
-    for name, param in optimizer.named_parameters():
+    for name, param in net.named_parameters():
         if "prompt_learner" not in name:
             param.requires_grad_(False)
 
