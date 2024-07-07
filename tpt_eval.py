@@ -1,5 +1,6 @@
 import torch
 import os
+import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
 import torchvision.transforms as transforms
@@ -18,7 +19,7 @@ from COOP.dataloader import get_data
 from loaders import Augmixer
 from tqdm import tqdm
 from utils import entropy
-import numpy as np
+from copy import deepcopy
 
 def load_pretrained_coop(backbone, _model):
     if backbone.lower() == "rn50":
@@ -128,10 +129,10 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
     # show batch
     batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
 
+    optimizer.zero_grad()
     loss = cost_function(avg_predictions, targets)
     loss.backward()
     optimizer.step()
-    optimizer.zero_grad()
 
     return loss.item()
 
@@ -142,12 +143,16 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
     top1 = 0
     top5 = 0
 
+    optimizer_state = deepcopy(optimizer.state_dict())
+
     # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
     pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
     for batch_idx, (inputs, targets) in enumerate(data_loader):
-        # Optimize prompts using TTA and augmentations
-        # TODO: Implement TTA step in a single function
-        
+        # Reset the prompt_learner to its initial state and the optimizer to its initial state
+        net.reset()
+        optimizer.load_state_dict(optimizer_state)
+
+        # Optimize prompts using TTA and augmentations        
         _loss = tta_net_train((batch_idx, inputs, targets), net, optimizer, cost_function, id2classes, device=device)
 
         # Evaluate the trained prompts on the single sample
@@ -168,8 +173,6 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
 
             pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100, top5=top5/samples * 100)
             pbar.update(1)
-        
-        net.reset()
 
     return cumulative_loss / samples, cumulative_accuracy / samples * 100
 
@@ -178,9 +181,7 @@ def main(
     backbone="RN50",
     device="mps",
     batch_size=64,
-    learning_rate=0.002,
-    weight_decay=0.0005,
-    momentum=0.9,
+    learning_rate=0.005,
     tta_steps=2,
     run_name="exp1",
     n_ctx=4,
@@ -191,16 +192,13 @@ def main(
     # Create a logger for the experiment
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
 
-
     _, preprocess = clip.load(backbone, device=device)
-
     
     data_transform = Augmixer(preprocess, batch_size, severity=1)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
         dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=True
-    )
-    
+    )    
 
     # Instantiate the network and move it to the chosen device (GPU)
     net = OurCLIP(
@@ -214,8 +212,11 @@ def main(
 
     net = load_pretrained_coop(backbone, net)
 
+    # Instantiate the optimizer
+    optimizer = get_optimizer(net, learning_rate)
+
     print("Turning off gradients in both the image and the text encoder")
-    for name, param in net.named_parameters():
+    for name, param in optimizer.named_parameters():
         if "prompt_learner" not in name:
             param.requires_grad_(False)
 
@@ -224,12 +225,8 @@ def main(
         f"Total trainable parameters: {sum(p.numel() for p in net.parameters() if p.requires_grad):,}"
     )
 
-    # Instantiate the optimizer
-    optimizer = get_optimizer(net, learning_rate, weight_decay, momentum)
-
     # Define the cost function
     cost_function = get_cost_function()
-
 
     print("Beginning testing with TPT:")
     test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, writer, id2classes=id2class, device=device)

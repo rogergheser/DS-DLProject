@@ -1,9 +1,9 @@
 import torch
 
-def get_optimizer(model, lr, wd, momentum):
-    optimizer = torch.optim.SGD([
+def get_optimizer(model, lr):
+    optimizer = torch.optim.AdamW([
         {"params": model.parameters()}
-    ], lr=lr, weight_decay=wd, momentum=momentum)
+    ], lr=lr)
 
     return optimizer
 
