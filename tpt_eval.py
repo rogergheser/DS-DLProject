@@ -124,7 +124,7 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
 
     # show batch
-    batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
+    # batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
 
     optimizer.zero_grad()
     loss = cost_function(avg_predictions, targets)
@@ -177,7 +177,7 @@ def main(
     dataset_name="imagenet_a",
     backbone="RN50",
     device="mps",
-    batch_size=64,
+    batch_size=16,
     learning_rate=0.005,
     tta_steps=2,
     run_name="exp1",

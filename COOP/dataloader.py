@@ -68,7 +68,10 @@ def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, 
     
     if(n_train + n_val == 0):
         train_loader, val_loader = None, None
-        test_loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=my_collate)
+        if batch_size == 1:
+            test_loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=my_collate)
+        else:
+            test_loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     else:
         train_dataset, val_dataset, test_dataset = random_split(dataset, [n_train, n_val, n_test])
 

@@ -13,20 +13,20 @@ def find_files(wildcard_pattern):
 
 def load_pretrained_coop(backbone, _model):
     if backbone.lower() == "rn50":
-        _backbone = "rn50*"
+        _backbone = "rn50"
     elif backbone.lower() == "rn101":
-        _backbone = "rn101*"
+        _backbone = "rn101"
     elif backbone.lower() == "vit_b16":
-        _backbone = "vit_b16*"
+        _backbone = "vit_b16"
     elif backbone.lower() == "vit_b32":
-        _backbone = "vit_b32*"
+        _backbone = "vit_b32"
     else:
         raise ValueError(f"Unknown backbone {backbone}")
 
     path = f"bin/coop/{_backbone}_ep50_16shots/nctx4_cscFalse_ctpend/seed1/prompt_learner/model.pth.tar-50"
 
-    pretrained_ctx = torch.load(path, map_location='mps')['state_dict']['ctx']
-    assert pretrained_ctx.size()[0] == _model.prompt_learner.n_ctx, f"Number of context tokens mismatch: {_model.n_ctx} vs {pretrained_ctx.size()[0]}"
+    pretrained_ctx = torch.load(path, map_location=DEVICE)['state_dict']['ctx']
+    assert pretrained_ctx.size()[0] == _model.prompt_learner.n_ctx, f"Number of context tokens mismatch: {_model.prompt_learner.n_ctx} vs {pretrained_ctx.size()[0]}"
     with torch.no_grad():
         _model.prompt_learner.ctx.copy_(pretrained_ctx)
         _model.prompt_learner.ctx_init_state = pretrained_ctx
@@ -190,5 +190,5 @@ if __name__ == "__main__":
     else:
         DEVICE = "cpu"
 
-    # main_coop(device=DEVICE)
-    test_coop(device=DEVICE)
+    main_coop(device=DEVICE)
+    # test_coop(device=DEVICE)
