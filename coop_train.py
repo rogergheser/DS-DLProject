@@ -23,16 +23,13 @@ def load_pretrained_coop(backbone, _model):
     else:
         raise ValueError(f"Unknown backbone {backbone}")
 
-    #### !TODO #### Fix path string builder
-    path = "bin/coop/rn50_ep50_16shots/nctx4_cscFalse_ctpend/seed1/prompt_learner/model.pth.tar-50"
+    path = f"bin/coop/{_backbone}_ep50_16shots/nctx4_cscFalse_ctpend/seed1/prompt_learner/model.pth.tar-50"
 
     pretrained_ctx = torch.load(path, map_location='mps')['state_dict']['ctx']
     assert pretrained_ctx.size()[0] == _model.prompt_learner.n_ctx, f"Number of context tokens mismatch: {_model.n_ctx} vs {pretrained_ctx.size()[0]}"
     with torch.no_grad():
         _model.prompt_learner.ctx.copy_(pretrained_ctx)
         _model.prompt_learner.ctx_init_state = pretrained_ctx
-
-    return _model
     
 def main_coop(
     dataset_name="imagenet_a",
@@ -55,7 +52,7 @@ def main_coop(
 
     _, preprocess = clip.load(backbone, device=device)
     
-    # Get dataloaders
+    # Get dataloaders    
     train_loader, val_loader, test_loader, classnames, id2class = get_data(
         dataset_name, batch_size, preprocess
     )
@@ -72,7 +69,7 @@ def main_coop(
         csc=csc,
     ).to(device)
 
-    net = load_pretrained_coop(backbone, net)
+    load_pretrained_coop(backbone, net)
 
     print("Turning off gradients in both the image and the text encoder")
     for name, param in net.named_parameters():
@@ -137,6 +134,53 @@ def main_coop(
     # Closes the logger
     writer.close()
 
+def test_coop(
+    dataset_name="imagenet_a",
+    backbone="RN50",
+    batch_size=128,
+    device="mps",
+    n_ctx=4,
+    ctx_init="",
+    class_token_position="end",
+    csc=False,
+):
+
+    _, preprocess = clip.load(backbone, device=device)
+    
+    # Get dataloaders    
+    _, _, test_loader, classnames, id2class = get_data(
+        dataset_name, batch_size, preprocess, train_size=0, val_size=0
+    )
+
+    # Instantiate the network and move it to the chosen device (GPU)
+    net = OurCLIP(
+        classnames=classnames,
+        n_ctx=n_ctx,
+        ctx_init=ctx_init,
+        class_token_position=class_token_position,
+        backbone=backbone,
+        csc=csc,
+    ).to(device)
+
+    load_pretrained_coop(backbone, net)
+
+    print("Turning off gradients in both the image and the text encoder")
+    for name, param in net.named_parameters():
+        if "prompt_learner" not in name:
+            param.requires_grad_(False)
+
+    print(f"Total parameters: {sum(p.numel() for p in net.parameters()):,}")
+    print(
+        f"Total trainable parameters: {sum(p.numel() for p in net.parameters() if p.requires_grad):,}"
+    )
+    # Define the cost function
+    cost_function = get_cost_function()
+
+    test_loss, test_accuracy = test_step(net, test_loader, cost_function, device=device)
+
+    print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
+
+
 
 if __name__ == "__main__":
     if torch.cuda.is_available():
@@ -146,4 +190,5 @@ if __name__ == "__main__":
     else:
         DEVICE = "cpu"
 
-    main_coop(device=DEVICE)
+    # main_coop(device=DEVICE)
+    test_coop(device=DEVICE)
