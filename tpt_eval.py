@@ -113,7 +113,7 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
 
     # Filter out the predictions with high entropy
     entropies = [entropy(t).item() for t in outputs.softmax(-1)]
-    # Calculate the threshold for the lowest 15% entropies
+    # Calculate the threshold for the lowest entropies values
     threshold = np.percentile(entropies, 15)
 
     outputs = outputs.softmax(-1)
@@ -178,6 +178,7 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
 
                 values, predictions = outputs.topk(5)
                 if prediction == targets:
+                    comulative_accuracy += 1
                     top1 += 1
                     tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
                 else:
@@ -208,8 +209,8 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
             continue
         no_tpt_acc = sum(no_tpt_class_acc[c]) / len(no_tpt_class_acc[c])
         tpt_acc = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
-        writer.add_histogram(f"Class accuracy/{c}", no_tpt_acc, 0)
-        writer.add_histogram(f"Class accuracy/{c}", tpt_acc, 1)
+        writer.add_scalar(f"Class accuracy/{c}", no_tpt_acc, 0)
+        writer.add_scalar(f"Class accuracy/{c}", tpt_acc, 1)
 
     return cumulative_loss / samples, cumulative_accuracy / samples * 100
 
