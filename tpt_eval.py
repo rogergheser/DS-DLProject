@@ -100,7 +100,7 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
     plt.close()
 
     
-def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda"):
+def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda", debug=False):
     batch_idx, inputs, targets = batch
     # Set the network to training mode
     net.train()
@@ -124,7 +124,8 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
 
     # show batch
-    # batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
+    if debug:
+        batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
 
     optimizer.zero_grad()
     loss = cost_function(avg_predictions, targets)
@@ -133,7 +134,7 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
 
     return loss.item()
 
-def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classes, device="cuda"):
+def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classes, device="cuda", debug=False):
     samples = 0.0
     cumulative_loss = 0.0
     cumulative_accuracy = 0.0
@@ -150,7 +151,7 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
         optimizer.load_state_dict(optimizer_state)
 
         # Optimize prompts using TTA and augmentations        
-        _loss = tta_net_train((batch_idx, inputs, targets), net, optimizer, cost_function, id2classes, device=device)
+        _loss = tta_net_train((batch_idx, inputs, targets), net, optimizer, cost_function, id2classes, device=device, debug=debug)
 
         # Evaluate the trained prompts on the single sample
         net.eval()
@@ -192,6 +193,7 @@ def main(
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
+    debug=False
 ):
     # Create a logger for the experiment
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
@@ -233,7 +235,7 @@ def main(
     cost_function = get_cost_function()
 
     print("Beginning testing with TPT:")
-    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, writer, id2classes=id2class, device=device)
+    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, writer, id2classes=id2class, device=device, debug=debug)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
 
     # Closes the logger
