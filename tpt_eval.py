@@ -171,8 +171,15 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
             if targets.item() in predictions:
                 top5 += (targets.view(-1, 1) == predictions).sum().item()
 
+            top1_str = id2classes[prediction.item()]
+            top5_str = [id2classes[pred] for pred in predictions[0].tolist()]
+            target_str = id2classes[targets.item()]
+            
+
             pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100, top5=top5/samples * 100)
             pbar.update(1)
+
+
 
     return cumulative_loss / samples, cumulative_accuracy / samples * 100
 
