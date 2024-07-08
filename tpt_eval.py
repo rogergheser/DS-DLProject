@@ -33,7 +33,6 @@ def load_pretrained_coop(backbone, _model):
     else:
         raise ValueError(f"Unknown backbone {backbone}")
 
-    #### !TODO #### Fix path string builder
     path = f"bin/coop/{_backbone}_ep50_16shots/nctx4_cscFalse_ctpend/seed1/prompt_learner/model.pth.tar-50"
     assert os.path.exists(path), f"Path {path} does not exist"
 
@@ -42,8 +41,6 @@ def load_pretrained_coop(backbone, _model):
     with torch.no_grad():
         _model.prompt_learner.ctx.copy_(pretrained_ctx)
         _model.prompt_learner.ctx_init_state = pretrained_ctx
-
-    return _model
 
 
 def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n):
@@ -116,7 +113,7 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
 
     # Filter out the predictions with high entropy
     entropies = [entropy(t).item() for t in outputs.softmax(-1)]
-    # Calculate the threshold for the lowest 10% entropies
+    # Calculate the threshold for the lowest 15% entropies
     threshold = np.percentile(entropies, 15)
 
     outputs = outputs.softmax(-1)
@@ -210,7 +207,7 @@ def main(
         csc=csc,
     ).to(device)
 
-    net = load_pretrained_coop(backbone, net)
+    load_pretrained_coop(backbone, net)
 
     # Instantiate the optimizer
     optimizer = get_optimizer(net, learning_rate)
