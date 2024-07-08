@@ -122,6 +122,7 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
     filtered_outputs = outputs[indices]
     filtered_inputs = inputs[indices]
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
+    prediction_entropy = entropy(avg_predictions).item()
 
     # show batch
     if debug:
@@ -131,8 +132,8 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
     loss = cost_function(avg_predictions, targets)
     loss.backward()
     optimizer.step()
-
-    return loss.item()
+    prediction = avg_predictions.argmax(dim=1)
+    return loss.item(), prediction, prediction_entropy
 
 def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classes, device="cuda", debug=False):
     samples = 0.0
@@ -141,43 +142,74 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
     top1 = 0
     top5 = 0
 
+    no_tpt_class_acc = {c: [] for c in id2classes.values()}
+    tpt_class_acc = {c: [] for c in id2classes.values()}
+    loss_diff = 0.0
+
     optimizer_state = deepcopy(optimizer.state_dict())
 
-    # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
-    pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
-    for batch_idx, (inputs, targets) in enumerate(data_loader):
-        # Reset the prompt_learner to its initial state and the optimizer to its initial state
-        net.reset()
-        optimizer.load_state_dict(optimizer_state)
+    try:
+        # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
+        pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
+        for batch_idx, (inputs, targets) in enumerate(data_loader):
+            # Reset the prompt_learner to its initial state and the optimizer to its initial state
+            net.reset()
+            optimizer.load_state_dict(optimizer_state)
 
-        # Optimize prompts using TTA and augmentations        
-        _loss = tta_net_train((batch_idx, inputs, targets), net, optimizer, cost_function, id2classes, device=device, debug=debug)
-
-        # Evaluate the trained prompts on the single sample
-        net.eval()
-        with torch.no_grad():
-            inputs = inputs[0].unsqueeze(0).to(device)
-            targets = targets.to(device)
-            outputs = net(inputs)
-            loss = cost_function(outputs, targets)
-            cumulative_loss += loss.item()
-            samples += 1
-            prediction = outputs.argmax(dim=1)
-            values, predictions = outputs.topk(5)
-            if prediction == targets:
-                top1 += 1
-            if targets.item() in predictions:
-                top5 += (targets.view(-1, 1) == predictions).sum().item()
-
-            top1_str = id2classes[prediction.item()]
-            top5_str = [id2classes[pred] for pred in predictions[0].tolist()]
-            target_str = id2classes[targets.item()]
+            # Optimize prompts using TTA and augmentations        
+            _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, cost_function, id2classes, device=device, debug=debug)
             
+            if no_tpt_prediction.item() == targets.item():
+                no_tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
+            else:
+                no_tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(0)
+
+            # Evaluate the trained prompts on the single sample
+            net.eval()
+            with torch.no_grad():
+                inputs = inputs[0].unsqueeze(0).to(device)
+                targets = targets.to(device)
+                outputs = net(inputs)
+                loss = cost_function(outputs, targets)
+                cumulative_loss += loss.item()
+                samples += 1
+                prediction = outputs.argmax(dim=1)
+                prediction_entropy = entropy(prediction).item()
+
+                values, predictions = outputs.topk(5)
+                if prediction == targets:
+                    top1 += 1
+                    tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
+                else:
+                    tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(0)
+                if targets.item() in predictions:
+                    top5 += (targets.view(-1, 1) == predictions).sum().item()
+
+                top1_str = id2classes[prediction.item()]
+                top5_str = [id2classes[pred] for pred in predictions[0].tolist()]
+                target_str = id2classes[targets.item()]
+                loss_diff +=  _loss - loss.item()
+                entropy_diff = prediction_entropy - no_tpt_prediction_entropy
+                
+            writer.add_scalar("Delta_loss/test", loss_diff, batch_idx)
+            writer.add_scalar("Delta_entropy/test", entropy_diff, batch_idx)
 
             pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100, top5=top5/samples * 100)
             pbar.update(1)
-
-
+    except KeyboardInterrupt:
+        print("User keyboard interrupt")
+        
+    pbar.close()
+    # Log the final values and class accuracies
+    # create histogram for class accuracies and log it with tensorboard
+    # Create single histograms for each class with a column for TPT and one for no TPT
+    for c in id2classes.values():
+        if len(no_tpt_class_acc[c]) == 0 or len(tpt_class_acc[c]) == 0:
+            continue
+        no_tpt_acc = sum(no_tpt_class_acc[c]) / len(no_tpt_class_acc[c])
+        tpt_acc = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
+        writer.add_histogram(f"Class accuracy/{c}", no_tpt_acc, 0)
+        writer.add_histogram(f"Class accuracy/{c}", tpt_acc, 1)
 
     return cumulative_loss / samples, cumulative_accuracy / samples * 100
 
@@ -237,8 +269,8 @@ def main(
     print("Beginning testing with TPT:")
     test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, writer, id2classes=id2class, device=device, debug=debug)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
-
     # Closes the logger
+    
     writer.close()
 
 
