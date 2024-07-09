@@ -20,7 +20,7 @@ from COOP.functions import training_step, test_step
 from COOP.dataloader import get_data
 from loaders import Augmixer
 from tqdm import tqdm
-from utils import entropy
+from utils import entropy, avg_entropy
 from copy import deepcopy
 
 def load_pretrained_coop(backbone, _model):
@@ -131,7 +131,7 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
 
     return image
 
-def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda", debug=False):
+def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, device="cuda", debug=False):
     batch_idx, inputs, targets = batch
     # Set the network to training mode
     net.train()
@@ -160,13 +160,17 @@ def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda
         batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
 
     optimizer.zero_grad()
-    loss = cost_function(avg_predictions, targets)
-    loss.backward()
-    optimizer.step()
+    # loss = cost_function(avg_predictions, targets)
+    loss = avg_entropy(filtered_outputs)
+    #loss.backward()
+    scaler.scale(loss).backward()
+    # optimizer.step()
+    scaler.step(optimizer)
+    scaler.update()
     prediction = avg_predictions.argmax(dim=1)
     return loss.item(), prediction, prediction_entropy
 
-def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classes, device="cuda", debug=False):
+def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, id2classes, device="cuda", debug=False):
     samples = 0.0
     cumulative_loss = 0.0
     cumulative_accuracy = 0.0
@@ -189,8 +193,9 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
 
             # Optimize prompts using TTA and augmentations
             # Get prediction without prompt optimization      
-            _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, cost_function, id2classes, device=device, debug=debug)
-            
+            _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, scaler, cost_function, id2classes, device=device, debug=debug)
+            #_loss, no_tpt_prediction, no_tpt_prediction_entropy = 0, torch.tensor(-1), 0
+
             if no_tpt_prediction.item() == targets.item():
                 no_tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
             else:
@@ -214,6 +219,7 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
                     tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
                 else:
                     tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(0)
+                    pass
                 if targets.item() in predictions:
                     top5 += (targets.view(-1, 1) == predictions).sum().item()
 
@@ -270,24 +276,25 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
 
 def main(
     dataset_name="imagenet_a",
-    backbone="ViT-B/16",
+    backbone="RN50",
     device="mps",
-    batch_size=64,
+    batch_size=16,
     learning_rate=0.005,
     tta_steps=2,
-    run_name="exp3",
+    run_name="exp4",
     n_ctx=4,
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
     debug=False
 ):
+    torch.manual_seed(0)
     # Create a logger for the experiment
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
 
     _, preprocess = clip.load(backbone, device=device)
     
-    data_transform = Augmixer(preprocess, batch_size, severity=1)
+    data_transform = Augmixer(preprocess, batch_size, severity=3)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
         dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=True
@@ -306,7 +313,7 @@ def main(
     load_pretrained_coop(backbone, net)
 
     # Instantiate the optimizer
-    optimizer = get_optimizer(net, learning_rate)
+    #optimizer = get_optimizer(net, learning_rate)
 
     print("Turning off gradients in both the image and the text encoder")
     for name, param in net.named_parameters():
@@ -318,11 +325,15 @@ def main(
         f"Total trainable parameters: {sum(p.numel() for p in net.parameters() if p.requires_grad):,}"
     )
 
+    trainable_param = net.prompt_learner.parameters()
+    optimizer = torch.optim.AdamW(trainable_param, learning_rate)
+    scaler = torch.cuda.amp.GradScaler(init_scale=1000)
+
     # Define the cost function
     cost_function = get_cost_function()
 
     print("Beginning testing with TPT:")
-    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, writer, id2classes=id2class, device=device, debug=debug)
+    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, scaler, cost_function, writer, id2classes=id2class, device=device, debug=debug)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
     # Closes the logger
     
