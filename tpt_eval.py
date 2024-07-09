@@ -28,9 +28,9 @@ def load_pretrained_coop(backbone, _model):
         _backbone = "rn50"
     elif backbone.lower() == "rn101":
         _backbone = "rn101"
-    elif backbone.lower() == "vit_b16":
+    elif backbone.lower() == "vit_b16" or backbone.lower() == "vit-b/16":
         _backbone = "vit_b16"
-    elif backbone.lower() == "vit_b32":
+    elif backbone.lower() == "vit_b32" or backbone.lower() == "vit-b/32":
         _backbone = "vit_b32"
     else:
         raise ValueError(f"Unknown backbone {backbone}")
@@ -270,12 +270,12 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
 
 def main(
     dataset_name="imagenet_a",
-    backbone="RN50",
+    backbone="ViT-B/16",
     device="mps",
     batch_size=64,
     learning_rate=0.005,
     tta_steps=2,
-    run_name="exp2",
+    run_name="exp3",
     n_ctx=4,
     ctx_init="a_photo_of_a",
     class_token_position="end",
