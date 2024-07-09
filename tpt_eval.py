@@ -1,9 +1,11 @@
+import io
 import torch
 import os
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
 import torchvision.transforms as transforms
+import matplotlib.pyplot as plt
 try:
     from torchvision.transforms import InterpolationMode
     BICUBIC = InterpolationMode.BICUBIC
@@ -99,7 +101,36 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
     plt.savefig(f"batch_reports/Batch{batch_n}.png")
     plt.close()
 
+
+def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label: str, save_path:str=None)-> Image:
+    """
+    Creates histogram for class accuracies and log it with tensorboard and saves the plot
+    """
+    classes = list(no_tpt_acc.keys())
+    x = np.arange(len(classes))
+    width = 0.35
+
+    fig, ax = plt.subplots(dpi=500)
+    ax.bar(x - width/2, no_tpt_acc.values(), width, color='b', label=no_tpt_label)
+    ax.bar(x + width/2, tpt_acc.values(), width, color='r', label=tpt_label)
     
+    ax.set_ylabel('Accuracy')
+    ax.set_title('Class accuracies')
+    ax.set_xticks(x)
+    ax.set_xticklabels(classes, rotation=-90, fontsize=2)
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+
+    image = Image.open(buf)
+    image = np.array(image)
+
+    if save_path:
+        plt.savefig(save_path)
+
+    return image
+
 def tta_net_train(batch, net, optimizer, cost_function, id2classes, device="cuda", debug=False):
     batch_idx, inputs, targets = batch
     # Set the network to training mode
@@ -156,7 +187,8 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
             net.reset()
             optimizer.load_state_dict(optimizer_state)
 
-            # Optimize prompts using TTA and augmentations        
+            # Optimize prompts using TTA and augmentations
+            # Get prediction without prompt optimization      
             _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, cost_function, id2classes, device=device, debug=debug)
             
             if no_tpt_prediction.item() == targets.item():
@@ -178,7 +210,6 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
 
                 values, predictions = outputs.topk(5)
                 if prediction == targets:
-                    cumulative_accuracy += 1
                     top1 += 1
                     tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
                 else:
@@ -189,8 +220,8 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
                 top1_str = id2classes[prediction.item()]
                 top5_str = [id2classes[pred] for pred in predictions[0].tolist()]
                 target_str = id2classes[targets.item()]
-                loss_diff +=  _loss - loss.item()
-                entropy_diff = prediction_entropy - no_tpt_prediction_entropy
+                loss_diff +=  _loss - loss.item() # comparison of loss with and without TPT
+                entropy_diff = prediction_entropy - no_tpt_prediction_entropy # comparison of entropy with and without TPT
                 
             writer.add_scalar("Delta_loss/test", loss_diff, batch_idx)
             writer.add_scalar("Delta_entropy/test", entropy_diff, batch_idx)
@@ -207,19 +238,33 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, writer, id2classe
             tpt_acc = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
             writer.add_scalar(f"Class accuracy/{c}", no_tpt_acc, 0)
             writer.add_scalar(f"Class accuracy/{c}", tpt_acc, 1)
+        # TODO plot histogram
         raise
         
     pbar.close()
     # Log the final values and class accuracies
     # create histogram for class accuracies and log it with tensorboard
     # Create single histograms for each class with a column for TPT and one for no TPT
+    
+    no_tpt_accuracies = {}
+    accuracies = {}
+
     for c in id2classes.values():
         if len(no_tpt_class_acc[c]) == 0 or len(tpt_class_acc[c]) == 0:
             continue
-        no_tpt_acc = sum(no_tpt_class_acc[c]) / len(no_tpt_class_acc[c])
-        tpt_acc = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
-        writer.add_scalar(f"Class accuracy/{c}", no_tpt_acc, 0)
-        writer.add_scalar(f"Class accuracy/{c}", tpt_acc, 1)
+        no_tpt_accuracies[c] = sum(no_tpt_class_acc[c]) / len(no_tpt_class_acc[c])
+        accuracies[c] = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
+    
+    image = make_histogram(no_tpt_accuracies, accuracies, 'No TPT','TPT', save_path="results/imagenet_A/plots/accuracy_by_class.png")
+    writer.add_image("Class accuracies", image, 0, dataformats="HWC")
+
+    # for c in id2classes.values():
+    #     if len(no_tpt_class_acc[c]) == 0 or len(tpt_class_acc[c]) == 0:
+    #         continue
+    #     no_tpt_acc = sum(no_tpt_class_acc[c]) / len(no_tpt_class_acc[c])
+    #     tpt_acc = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
+    #     writer.add_scalar(f"Class accuracy/{c}", no_tpt_acc, 0)
+    #     writer.add_scalar(f"Class accuracy/{c}", tpt_acc, 1)
 
     return cumulative_loss / samples, cumulative_accuracy / samples * 100
 
