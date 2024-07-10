@@ -183,7 +183,6 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
             prediction_entropy = entropy(avg_predictions).item()
             loss = avg_entropy(filtered_outputs)
             scaler.scale(loss).backward()
-            loss.backward()
             if debug:
                 if torch.isnan(net.prompt_learner.ctx.grad).any():
                     print("NaN in context tokens gradient")
@@ -313,7 +312,7 @@ def main(
     batch_size=16,
     learning_rate=0.005,
     tta_steps=2,
-    run_name="exp4",
+    run_name="exp5",
     n_ctx=4,
     ctx_init="a_photo_of_a",
     class_token_position="end",
