@@ -2,6 +2,7 @@ import io
 import torch
 import os
 import numpy as np
+import torch.amp
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
 import torchvision.transforms as transforms
@@ -22,6 +23,8 @@ from loaders import Augmixer
 from tqdm import tqdm
 from utils import entropy, avg_entropy
 from copy import deepcopy
+
+DEBUG = True
 
 def load_pretrained_coop(backbone, _model):
     if backbone.lower() == "rn50":
@@ -145,28 +148,64 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
     # Filter out the predictions with high entropy
     entropies = [entropy(t).item() for t in outputs.softmax(-1)]
     # Calculate the threshold for the lowest entropies values
-    threshold = np.percentile(entropies, 10)
+    threshold = np.percentile(entropies, 15)
+    if scaler is None:
+        outputs = outputs.softmax(-1)
+        entropies = [0 if val > threshold else val for val in entropies]
+        indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
+        filtered_outputs = outputs[indices]
+        filtered_inputs = inputs[indices]
+        avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
+        prediction_entropy = entropy(avg_predictions).item()
 
-    outputs = outputs.softmax(-1)
-    entropies = [0 if val > threshold else val for val in entropies]
-    indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
-    filtered_outputs = outputs[indices]
-    filtered_inputs = inputs[indices]
-    avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
-    prediction_entropy = entropy(avg_predictions).item()
+        optimizer.zero_grad()
+        # loss = cost_function(avg_predictions, targets)
+        loss = avg_entropy(filtered_outputs)
+        
+        loss.backward()
+        if debug:
+            if torch.isnan(net.prompt_learner.ctx.grad).any():
+                print("NaN in context tokens gradient")
+                raise ValueError("NaN in context tokens gradient")
+            if torch.isinf(net.prompt_learner.ctx.grad).any():
+                print("Inf in context tokens gradient")
+                raise ValueError("Inf in context tokens gradient")
 
+        optimizer.step()
+    else:
+        with torch.cuda.amp.autocast():
+            outputs = outputs.softmax(-1)
+            entropies = [0 if val > threshold else val for val in entropies]
+            indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
+            filtered_outputs = outputs[indices]
+            filtered_inputs = inputs[indices]
+            avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
+            prediction_entropy = entropy(avg_predictions).item()
+            loss = avg_entropy(filtered_outputs)
+            scaler.scale(loss).backward()
+            loss.backward()
+            if debug:
+                if torch.isnan(net.prompt_learner.ctx.grad).any():
+                    print("NaN in context tokens gradient")
+                    raise ValueError("NaN in context tokens gradient")
+                if torch.isinf(net.prompt_learner.ctx.grad).any():
+                    print("Inf in context tokens gradient")
+                    raise ValueError("Inf in context tokens gradient")
+            
+            scaler.step(optimizer)
+            scaler.update()
+    
+    if torch.isnan(net.prompt_learner.ctx).any():
+        print("NaN in context tokens")
+        raise ValueError("NaN in context tokens")
+    
+    if torch.isinf(net.prompt_learner.ctx).any():
+        print("Inf in context tokens")
+        raise ValueError("Inf in context tokens")
     # show batch
     if debug:
         batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
 
-    optimizer.zero_grad()
-    # loss = cost_function(avg_predictions, targets)
-    loss = avg_entropy(filtered_outputs)
-    #loss.backward()
-    scaler.scale(loss).backward()
-    # optimizer.step()
-    scaler.step(optimizer)
-    scaler.update()
     prediction = avg_predictions.argmax(dim=1)
     return loss.item(), prediction, prediction_entropy
 
@@ -188,8 +227,9 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
         pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
         for batch_idx, (inputs, targets) in enumerate(data_loader):
             # Reset the prompt_learner to its initial state and the optimizer to its initial state
-            net.reset()
-            optimizer.load_state_dict(optimizer_state)
+            with torch.no_grad():
+                net.reset()
+                optimizer.load_state_dict(optimizer_state)
 
             # Optimize prompts using TTA and augmentations
             # Get prediction without prompt optimization      
@@ -264,14 +304,6 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
     image = make_histogram(no_tpt_accuracies, accuracies, 'No TPT','TPT', save_path="results/imagenet_A/plots/accuracy_by_class.png")
     writer.add_image("Class accuracies", image, 0, dataformats="HWC")
 
-    # for c in id2classes.values():
-    #     if len(no_tpt_class_acc[c]) == 0 or len(tpt_class_acc[c]) == 0:
-    #         continue
-    #     no_tpt_acc = sum(no_tpt_class_acc[c]) / len(no_tpt_class_acc[c])
-    #     tpt_acc = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
-    #     writer.add_scalar(f"Class accuracy/{c}", no_tpt_acc, 0)
-    #     writer.add_scalar(f"Class accuracy/{c}", tpt_acc, 1)
-
     return cumulative_loss / samples, cumulative_accuracy / samples * 100
 
 def main(
@@ -286,8 +318,9 @@ def main(
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
-    debug=False
+    debug=DEBUG
 ):
+    print("Using manual seed")
     torch.manual_seed(0)
     # Create a logger for the experiment
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
@@ -327,8 +360,10 @@ def main(
 
     trainable_param = net.prompt_learner.parameters()
     optimizer = torch.optim.AdamW(trainable_param, learning_rate)
-    scaler = torch.cuda.amp.GradScaler(init_scale=1000)
-
+    if device == 'cuda':
+        scaler = torch.cuda.amp.GradScaler(init_scale=1000)
+    else:
+        scaler = None
     # Define the cost function
     cost_function = get_cost_function()
 
