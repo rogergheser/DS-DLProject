@@ -6,3 +6,4 @@ bin/coop/
 .DS_Store
 __pycache__
 batch_reports/
+batch_predictions/
