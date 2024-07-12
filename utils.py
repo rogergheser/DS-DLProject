@@ -5,6 +5,7 @@ import numpy as np
 import regex as re
 import os
 from matplotlib import pyplot as plt
+from PIL import Image
 
 def show_image(image, label):
     image = image.numpy()

@@ -27,6 +27,7 @@ from copy import deepcopy
 DEBUG = True
 
 def load_pretrained_coop(backbone, _model):
+    # TODO Makes this function cleaner and more robust
     if backbone.lower() == "rn50":
         _backbone = "rn50"
     elif backbone.lower() == "rn101":
@@ -71,8 +72,9 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
 
     # Visualise the input using matplotlib
     label = id2classes[targets[0].item()]
+
     plt.figure(figsize=(16,16))
-    plt.title(f"Image batch of {label} - min entropy 10 samples selected")
+    plt.title(f"Image batch of {label} - min entropy 10 percentile selected")
     plt.axis('off')
 
     for i, image in enumerate(images[:10]):
@@ -134,6 +136,16 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
 
     return image
 
+def report_predictions(idx:int, predictions:str, values:float, target:str):
+    dir = 'batch_predictions/'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+    with open(f"{dir}batch_{idx}.txt", 'w') as f:
+        f.write(f"Target: {target}\n")
+        for pred, value in zip(predictions, values[0]):
+            f.write(f"\t{pred}: {value:.2f}\n")
+
 def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, device="cuda", debug=False):
     batch_idx, inputs, targets = batch
     # Set the network to training mode
@@ -148,7 +160,7 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
     # Filter out the predictions with high entropy
     entropies = [entropy(t).item() for t in outputs.softmax(-1)]
     # Calculate the threshold for the lowest entropies values
-    threshold = np.percentile(entropies, 15)
+    threshold = np.percentile(entropies, 10)
     if scaler is None:
         outputs = outputs.softmax(-1)
         entropies = [0 if val > threshold else val for val in entropies]
@@ -203,7 +215,10 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
         raise ValueError("Inf in context tokens")
     # show batch
     if debug:
-        batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
+        batch_report(torch.cat((inputs[0].unsqueeze(0), filtered_inputs),0),
+                     torch.cat((outputs[0].unsqueeze(0), filtered_outputs), 0),
+                     avg_predictions, targets, id2classes, batch_n=batch_idx)
+        # batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
 
     prediction = avg_predictions.argmax(dim=1)
     return loss.item(), prediction, prediction_entropy
@@ -235,6 +250,8 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
             _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, scaler, cost_function, id2classes, device=device, debug=debug)
             #_loss, no_tpt_prediction, no_tpt_prediction_entropy = 0, torch.tensor(-1), 0
 
+
+            # ! this is not correct, we are not computing the accuracy
             if no_tpt_prediction.item() == targets.item():
                 no_tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
             else:
@@ -265,6 +282,9 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
                 top1_str = id2classes[prediction.item()]
                 top5_str = [id2classes[pred] for pred in predictions[0].tolist()]
                 target_str = id2classes[targets.item()]
+
+                report_predictions(batch_idx, top5_str, values, target_str)
+
                 loss_diff +=  _loss - loss.item() # comparison of loss with and without TPT
                 entropy_diff = prediction_entropy - no_tpt_prediction_entropy # comparison of entropy with and without TPT
                 
@@ -309,7 +329,7 @@ def main(
     dataset_name="imagenet_a",
     backbone="RN50",
     device="mps",
-    batch_size=16,
+    batch_size=64,
     learning_rate=0.005,
     tta_steps=2,
     run_name="exp5",
