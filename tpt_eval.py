@@ -152,14 +152,12 @@ def report_predictions(idx:int, predictions:str, values:float, target:str):
 
 def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, device="cuda", debug=False):
     batch_idx, inputs, targets = batch
-    # Set the network to training mode
-    net.train()
 
     inputs = inputs.to(device)
     targets = targets.to(device)
 
     # Forward pass
-    outputs = net(inputs)
+    outputs = net(inputs).softmax(-1)
 
     # Filter out the predictions with high entropy
     entropies = [entropy(t).item() for t in outputs]
@@ -174,7 +172,7 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
         prediction_entropy = entropy(avg_predictions).item()
 
         optimizer.zero_grad()
-        # loss = cost_function(avg_predictions, targets)
+        loss = cost_function(avg_predictions, targets)
         loss = avg_entropy(filtered_outputs)
         
         loss.backward()
@@ -186,7 +184,7 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
                 print("Inf in context tokens gradient")
                 raise ValueError("Inf in context tokens gradient")
 
-        # optimizer.step() #! get this back later
+        optimizer.step()
     else:
         with torch.cuda.amp.autocast():
             entropies = [0 if val > threshold else val for val in entropies]
@@ -204,9 +202,8 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
                 if torch.isinf(net.prompt_learner.ctx.grad).any():
                     print("Inf in context tokens gradient")
                     raise ValueError("Inf in context tokens gradient")
-            # ! get this back later
-            # scaler.step(optimizer)
-            # scaler.update()
+            scaler.step(optimizer)
+            scaler.update()
     
     if torch.isnan(net.prompt_learner.ctx).any():
         print("NaN in context tokens")
@@ -250,8 +247,6 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
             # Optimize prompts using TTA and augmentations
             # Get prediction without prompt optimization      
             _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, scaler, cost_function, id2classes, device=device, debug=debug)
-            #_loss, no_tpt_prediction, no_tpt_prediction_entropy = 0, torch.tensor(-1), 0
-
 
             # ! this is not correct, we are not computing the accuracy
             if no_tpt_prediction.item() == targets.item():
@@ -348,7 +343,7 @@ def main(
 
     _, preprocess = clip.load(backbone, device=device)
     
-    data_transform = Augmixer(preprocess, preprocess, batch_size, augmix=True, severity=3)
+    data_transform = Augmixer(preprocess, batch_size, severity=1)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
         dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=True
