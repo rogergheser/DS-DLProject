@@ -62,9 +62,21 @@ def sharpness(pil_img, level):
     import TPT.data.augmix_ops 
     return TPT.data.augmix_ops.sharpness(pil_img, level)
 
+def random_crop(img, size):
+    from torchvision.transforms import RandomCrop
+    size = 224
+    return RandomCrop(size)(img)
+
+def random_flip(img):
+    from torchvision.transforms import RandomHorizontalFlip
+    return RandomHorizontalFlip()(img)
+
 augmentations = [
-    autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y,
-    translate_x, translate_y, color, contrast, brightness, sharpness
+    rotate, translate_x, translate_y, random_crop, random_flip
+]
+
+augmentations_basic = [
+    rotate, translate_x, translate_y, random_crop, random_flip
 ]
 
 augmentations_all = [
