@@ -51,6 +51,7 @@ def load_pretrained_coop(backbone, _model):
 
 def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n):
     from matplotlib import pyplot as plt
+    import datetime
     probabilities, predictions = outputs.cpu().topk(5)
     probabilities = probabilities.detach().numpy()
     predictions = predictions.detach()
@@ -74,7 +75,7 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
     label = id2classes[targets[0].item()]
 
     plt.figure(figsize=(16,16))
-    plt.title(f"Image batch of {label} - min entropy 10 percentile selected")
+    plt.title(f"Image batch of {label} - min entropy 10 percentile selected\n{datetime.datetime.now()}")
     plt.axis('off')
 
     for i, image in enumerate(images[:10]):
@@ -137,6 +138,7 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
     return image
 
 def report_predictions(idx:int, predictions:str, values:float, target:str):
+    import datetime
     dir = 'batch_predictions/'
     if not os.path.exists(dir):
         os.makedirs(dir)
@@ -145,6 +147,8 @@ def report_predictions(idx:int, predictions:str, values:float, target:str):
         f.write(f"Target: {target}\n")
         for pred, value in zip(predictions, values[0]):
             f.write(f"\t{pred}: {value:.2f}\n")
+        f.write(f"{datetime.datetime.now()}")
+
 
 def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, device="cuda", debug=False):
     batch_idx, inputs, targets = batch
@@ -158,11 +162,10 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
     outputs = net(inputs)
 
     # Filter out the predictions with high entropy
-    entropies = [entropy(t).item() for t in outputs.softmax(-1)]
+    entropies = [entropy(t).item() for t in outputs]
     # Calculate the threshold for the lowest entropies values
     threshold = np.percentile(entropies, 10)
     if scaler is None:
-        outputs = outputs.softmax(-1)
         entropies = [0 if val > threshold else val for val in entropies]
         indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
         filtered_outputs = outputs[indices]
@@ -183,10 +186,9 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
                 print("Inf in context tokens gradient")
                 raise ValueError("Inf in context tokens gradient")
 
-        optimizer.step()
+        # optimizer.step() #! get this back later
     else:
         with torch.cuda.amp.autocast():
-            outputs = outputs.softmax(-1)
             entropies = [0 if val > threshold else val for val in entropies]
             indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
             filtered_outputs = outputs[indices]
@@ -202,9 +204,9 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
                 if torch.isinf(net.prompt_learner.ctx.grad).any():
                     print("Inf in context tokens gradient")
                     raise ValueError("Inf in context tokens gradient")
-            
-            scaler.step(optimizer)
-            scaler.update()
+            # ! get this back later
+            # scaler.step(optimizer)
+            # scaler.update()
     
     if torch.isnan(net.prompt_learner.ctx).any():
         print("NaN in context tokens")
@@ -346,7 +348,7 @@ def main(
 
     _, preprocess = clip.load(backbone, device=device)
     
-    data_transform = Augmixer(preprocess, batch_size, severity=3)
+    data_transform = Augmixer(preprocess, preprocess, batch_size, augmix=True, severity=3)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
         dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=True

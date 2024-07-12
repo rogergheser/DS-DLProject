@@ -5,7 +5,8 @@ import torchvision.transforms as transforms
 import numpy as np
 import torch.utils.data
 import py_vars
-from augmix import *
+import random
+from augmix import augmentations
 from PIL import Image
 
 
@@ -60,19 +61,63 @@ def load_cifar100(path:str, batch_size:int, preprocess:transforms.Compose, shuff
     id2class = {cifar100.class_to_idx[c] : c for c in cifar100.classes}
     return cifar100_loader, id2class
 
-class Augmixer():
-    def __init__(self, preprocess:transforms.Compose, batch_size:int=64, severity: int = 3, mixture_width: int = 5, chain_depth: int = 1, alpha: float = 0.3):
-        self.preprocess = preprocess
-        self.batch_size = batch_size
-        self.augmenter = v2.AugMix(severity=severity, mixture_width=mixture_width, chain_depth=chain_depth, alpha=alpha)
+# class Augmixer():
+#     def __init__(self, preprocess:transforms.Compose, batch_size:int=64, severity: int = 3, mixture_width: int = 5, chain_depth: int = 1, alpha: float = 0.3):
+#         self.preprocess = preprocess
+#         self.batch_size = batch_size
+#         self.augmenter = v2.AugMix(severity=severity, mixture_width=mixture_width, chain_depth=chain_depth, alpha=alpha)
     
-    def __call__(self, img):
-        # img = self.preprocess(img)
-        if torch.is_tensor(img):
-            if not img.dtype == torch.uint8:
-                img = img.mul(255).byte()
-            assert img.dtype == torch.uint8, "Image must be of type uint8"            
+#     def __call__(self, img):
+#         # img = self.preprocess(img)
+#         if torch.is_tensor(img):
+#             if not img.dtype == torch.uint8:
+#                 img = img.mul(255).byte()
+#             assert img.dtype == torch.uint8, "Image must be of type uint8"            
 
-        augmentations = [self.preprocess(self.augmenter(img)) for _ in range(self.batch_size-1)]
-        res = [self.preprocess(img)] + augmentations
-        return torch.stack(res).squeeze(0)
+#         augmentations = [self.preprocess(self.augmenter(img)) for _ in range(self.batch_size-1)]
+#         res = [self.preprocess(img)] + augmentations
+#         return torch.stack(res).squeeze(0)
+
+def get_preaugment():
+    return transforms.Compose([
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+        ])
+
+def _augmix(image, preprocess, aug_list, severity=1):
+    preaugment = get_preaugment()
+    x_orig = preaugment(image)
+    x_processed = preprocess(x_orig)
+    if len(aug_list) == 0:
+        return x_processed
+    w = np.float32(np.random.dirichlet([1.0, 1.0, 1.0]))
+    m = np.float32(np.random.beta(1.0, 1.0))
+
+    mix = torch.zeros_like(x_processed)
+    for i in range(3):
+        x_aug = x_orig.copy()
+        for _ in range(np.random.randint(1, 4)):
+            x_aug = np.random.choice(aug_list)(x_aug)
+        mix += w[i] * preprocess(x_aug)
+    mix = m * x_processed + (1 - m) * mix
+    return mix
+
+class Augmixer(object):
+    def __init__(self, base_transform, preprocess, n_views=64, augmix=False, 
+                    severity=1):
+        self.base_transform = base_transform
+        self.preprocess = preprocess
+        self.n_views = n_views-1
+        self.aug_list = augmentations
+        self.severity = severity
+        self.augmix = augmix
+        
+    def __call__(self, x):
+        if self.augmix:
+            image = self.preprocess(x)
+            views = [_augmix(x, self.preprocess, self.aug_list, self.severity) for _ in range(self.n_views)]
+        else:
+            image = self.preprocess(x)
+            views = [random.choice(self.aug_list)(self.preprocess(x)) for _ in range(self.n_views)]
+
+        return torch.stack([image] + views, 0)
