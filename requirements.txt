@@ -1,0 +1,9 @@
+ftfy==6.2.0
+matplotlib==3.8.3
+numpy==1.26.4
+pillow==10.3.0
+regex==2024.4.16
+typing==3.7.4.3
+torch==2.3.1
+torchvision==0.18.1
+tqdm==4.66.2
