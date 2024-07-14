@@ -24,7 +24,7 @@ from tqdm import tqdm
 from utils import entropy, avg_entropy
 from copy import deepcopy
 
-DEBUG = True
+DEBUG = False
 
 def load_pretrained_coop(backbone, _model):
     # TODO Makes this function cleaner and more robust
@@ -239,6 +239,8 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
         # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
         pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
         for batch_idx, (inputs, targets) in enumerate(data_loader):
+            if batch_idx < 6175:
+                continue
             # Reset the prompt_learner to its initial state and the optimizer to its initial state
             with torch.no_grad():
                 net.reset()
@@ -329,7 +331,7 @@ def main(
     batch_size=64,
     learning_rate=0.005,
     tta_steps=2,
-    run_name="exp5",
+    run_name="exp6",
     n_ctx=4,
     ctx_init="a_photo_of_a",
     class_token_position="end",
@@ -343,12 +345,14 @@ def main(
 
     _, preprocess = clip.load(backbone, device=device)
     
-    data_transform = Augmixer(preprocess, batch_size, severity=1)
+    data_transform = Augmixer(preprocess, batch_size, augmix=True, severity=1)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
         dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=True
     )    
-
+    for idx, _ in enumerate(test_loader):
+        if idx == 6175:
+            break
     # Instantiate the network and move it to the chosen device (GPU)
     net = OurCLIP(
         classnames=classnames,

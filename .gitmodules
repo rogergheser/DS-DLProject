@@ -4,3 +4,6 @@
 [submodule "CLIP"]
 	path = CLIP
 	url = https://github.com/openai/CLIP.git
+[submodule "ice"]
+	path = ice
+	url = https://github.com/Chris210634/ice
