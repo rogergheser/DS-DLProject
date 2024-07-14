@@ -361,9 +361,6 @@ def main(
 
     load_pretrained_coop(backbone, net)
 
-    # Instantiate the optimizer
-    #optimizer = get_optimizer(net, learning_rate)
-
     print("Turning off gradients in both the image and the text encoder")
     for name, param in net.named_parameters():
         if "prompt_learner" not in name:
@@ -375,7 +372,8 @@ def main(
     )
 
     trainable_param = net.prompt_learner.parameters()
-    optimizer = torch.optim.AdamW(trainable_param, learning_rate)
+    optimizer = get_optimizer(trainable_param, learning_rate)
+
     if device == 'cuda':
         scaler = torch.cuda.amp.GradScaler(init_scale=1000)
     else:

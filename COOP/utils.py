@@ -1,10 +1,7 @@
 import torch
 
-def get_optimizer(model, lr):
-    optimizer = torch.optim.AdamW([
-        {"params": model.parameters()}
-    ], lr=lr)
-
+def get_optimizer(params, lr):
+    optimizer = torch.optim.AdamW(params, lr)
     return optimizer
 
 def get_cost_function():
