@@ -9,13 +9,13 @@ from typing import Optional
 
 def my_collate(batch):
         # Unpack the batch
-        images, labels = zip(*batch)
+        images, label, path = zip(*batch)
 
         # Remove the extra dimension and stack the images and labels
         images = torch.stack([img.squeeze(0) for img in images]).squeeze(0)
-        labels = torch.tensor(labels[0]).unsqueeze(0)
+        labels = torch.tensor(label[0]).unsqueeze(0)
 
-        return images, labels
+        return images, labels, path
 
 class AugmixFolder(datasets.ImageFolder):
     def __init__(self, root,transform):
@@ -24,9 +24,10 @@ class AugmixFolder(datasets.ImageFolder):
         
     def __getitem__(self, index):
         img, label = super(AugmixFolder, self).__getitem__(index)
+        path = self.imgs[index][0]
         if isinstance(self.transform, Augmixer):
-            return img.squeeze(0), label
-        return img, label
+            return img.squeeze(0), label, path
+        return img, label, path
 
 def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, val_size=0.1):
     """
@@ -63,8 +64,6 @@ def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, 
     n_train = int(train_size * n)
     n_val = int(val_size * n)
     n_test = n - n_train - n_val
-
-    # torch.manual_seed(0)
     
     if(n_train + n_val == 0):
         train_loader, val_loader = None, None
