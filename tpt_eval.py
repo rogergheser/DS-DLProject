@@ -215,8 +215,8 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
     # show batch
     if debug:
         batch_report(torch.cat((inputs[0].unsqueeze(0), filtered_inputs),0),
-                     torch.cat((outputs[0].unsqueeze(0), filtered_outputs), 0),
-                     avg_predictions, targets, id2classes, batch_n=batch_idx)
+                    torch.cat((outputs[0].unsqueeze(0), filtered_outputs), 0),
+                    avg_predictions, targets, id2classes, batch_n=batch_idx)
         # batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
 
     prediction = avg_predictions.argmax(dim=1)
@@ -238,7 +238,7 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
     try:
         # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
         pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
-        for batch_idx, (inputs, targets) in enumerate(data_loader):
+        for batch_idx, (inputs, targets, _) in enumerate(data_loader):
             if batch_idx < 6175:
                 continue
             # Reset the prompt_learner to its initial state and the optimizer to its initial state
@@ -350,9 +350,7 @@ def main(
     _, _, test_loader, classnames, id2class = get_data(
         dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=True
     )    
-    for idx, _ in enumerate(test_loader):
-        if idx == 6175:
-            break
+
     # Instantiate the network and move it to the chosen device (GPU)
     net = OurCLIP(
         classnames=classnames,
