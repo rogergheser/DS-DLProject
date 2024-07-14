@@ -81,7 +81,12 @@ def random_vertical_flip(img):
     return RandomVerticalFlip()(img)
 
 augmentations = [
-    random_crop, random_horizontal_flip
+    autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y,
+    translate_x, translate_y, color, contrast, brightness, sharpness
+]
+
+post_augmentations = [
+    random_crop, random_horizontal_flip, random_resize_crop
 ]
 
 augmentations_basic = [
