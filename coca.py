@@ -65,7 +65,7 @@ def _tokenize(x, tokenizer):
 def _generate_macro(caption_model, im, prompt):
     text=torch.ones((im.shape[0], 1), device=device, dtype=torch.long)*prompt
     generated = caption_model.generate(
-                im.to(device), 
+                im, 
                 text=text,
                 generation_type='top_p')
     return generated
@@ -86,7 +86,7 @@ def generate_captions(images, caption_model, prompt, tokenizer, device):
         
     generated = _generate_macro(
         caption_model, 
-        images.to(device), 
+        images, 
         prompt_extended)
     
     assert len(generated) == len(images)
@@ -136,6 +136,34 @@ def get_captions()->dict:
                         captions[captioner][dataset][option][ret_path] = caption
     return captions
 
+def caption_report(images, label, outputs, id2class, idx):
+    import matplotlib.pyplot as plt
+
+    clip_mean = [0.48145466, 0.4578275, 0.40821073]
+    clip_std = [0.26862954, 0.26130258, 0.27577711]
+
+    mean = torch.tensor(clip_mean).reshape(1, 3, 1, 1)
+    std = torch.tensor(clip_std).reshape(1, 3, 1, 1)
+
+    # Denormalize the batch of images
+    unnormalize = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
+    denormalized_images = unnormalize(images)
+
+    # Visualise the input using matplotlib
+    images = [image.numpy().transpose(1, 2, 0) for image in denormalized_images.cpu()] # Convert to numpy and transpose to (H, W, C)
+    label = [lab.item() for lab in label.cpu()] if label.shape[0] > 1 else label.item()
+
+    plt.figure(figsize=(16, 16))
+    plt.title(f"Captions generated from the {idx}th batch")
+    plt.axis('off')
+
+    for i, image in enumerate(images[:10]):
+        plt.subplot(3,3, i+1, axis='off', title=id2class[label[i]], subtitle=outputs[i])
+        plt.imshow(image)
+
+    plt.show()
+
+
 if __name__ == '__main__':
     # This script adjusts pre-generated captions to match the path of the images
     if torch.cuda.is_available():
@@ -154,24 +182,24 @@ if __name__ == '__main__':
         pretrained="laion2B-s13B-b90k",
         cache_dir = cache_dir
     )
+    caption_model.to(device)
 
     _, _, data, classes, id2class = get_data('imagenet_a', 32, preprocess, True, 0.0, 0.0)
-    caption_model.to(device)
 
     answers = []
     loop = tqdm.tqdm(enumerate(data), total=len(data))
     for idx, (images, label, path) in loop:
-        # images = images.to(device)
-        outputs = generate_captions(
-            images, 
-            caption_model, 
-            prompt,
-            tokenizer,
-            device
-        )
+        images = images.to(device)
 
-        for o in outputs:
-            continue
-            answer_list.append(o.replace('\n', ' '))
-            if begin == 0:
-                print(o.replace('\n', ' '))
+        with torch.no_grad(), torch.cuda.amp.autocast():
+            outputs = generate_captions(
+                images, 
+                caption_model, 
+                prompt,
+                tokenizer,
+                device
+            )
+
+        caption_report(images, label, outputs, id2class, idx)
+
+        print(outputs)
