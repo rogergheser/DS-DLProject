@@ -16,193 +16,91 @@ except ImportError:
 from CLIP import clip
 
 from COOP.models import OurCLIP
-from COOP.utils import get_optimizer, get_cost_function, log_values
+from COOP.utils import get_optimizer, log_values, get_loss_function
 from COOP.functions import training_step, test_step
 from COOP.dataloader import get_data
-from loaders import Augmixer
+from coca_model import Captioner
+from loaders import Augmixer, load_pretrained_coop
 from tqdm import tqdm
-from utils import entropy, avg_entropy
+from utils import (entropy, avg_entropy, batch_report, filter_on_entropy,
+                report_predictions, make_histogram, compute_accuracies)
 from copy import deepcopy
+import torch.nn.functional as F
 
 DEBUG = True
+RUN_NAME = "exp6"
 
-def load_pretrained_coop(backbone, _model):
-    if backbone.lower() == "rn50":
-        _backbone = "rn50"
-    elif backbone.lower() == "rn101":
-        _backbone = "rn101"
-    elif backbone.lower() == "vit_b16" or backbone.lower() == "vit-b/16":
-        _backbone = "vit_b16"
-    elif backbone.lower() == "vit_b32" or backbone.lower() == "vit-b/32":
-        _backbone = "vit_b32"
-    else:
-        raise ValueError(f"Unknown backbone {backbone}")
-
-    path = f"bin/coop/{_backbone}_ep50_16shots/nctx4_cscFalse_ctpend/seed1/prompt_learner/model.pth.tar-50"
-    assert os.path.exists(path), f"Path {path} does not exist"
-
-    # Load the context gained from the COOP weights and insert it into the model
-    pretrained_ctx = torch.load(path, DEVICE)['state_dict']['ctx']
-    assert pretrained_ctx.size()[0] == _model.prompt_learner.n_ctx, f"Number of context tokens mismatch: {_model.prompt_learner.n_ctx} vs {pretrained_ctx.size()[0]}"
-    # Turn off the gradients of the image and text encoders so that they don't change
-    with torch.no_grad():
-        _model.prompt_learner.ctx.copy_(pretrained_ctx)
-        _model.prompt_learner.ctx_init_state = pretrained_ctx
-
-
-def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n):
-    from matplotlib import pyplot as plt
-    probabilities, predictions = outputs.cpu().topk(5)
-    probabilities = probabilities.detach().numpy()
-    predictions = predictions.detach()
-
-    clip_mean = [0.48145466, 0.4578275, 0.40821073]
-    clip_std = [0.26862954, 0.26130258, 0.27577711]
-
-    mean = torch.tensor(clip_mean).reshape(1, 3, 1, 1)
-    std = torch.tensor(clip_std).reshape(1, 3, 1, 1)
-
-    # Denormalize the batch of images
-    # denormalized_images = inputs.cpu() * std + mean
-    # denormalized_images = denormalized_images.numpy().astype('uint8')
-    unnormalize = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
-    denormalized_images = unnormalize(inputs)
-
-    # Visualise the input using matplotlib
-    images = [image.numpy().transpose(1, 2, 0) for image in denormalized_images.cpu()] # Convert to numpy and transpose to (H, W, C)
-
-    # Visualise the input using matplotlib
-    label = id2classes[targets[0].item()]
-    plt.figure(figsize=(16,16))
-    plt.title(f"Image batch of {label} - min entropy 10 samples selected")
-    plt.axis('off')
-
-    for i, image in enumerate(images[:10]):
-        plt.subplot(6,4, 2*i+1)
-        plt.imshow(image)
-        plt.axis('off')
-
-        plt.subplot(6,4, 2*i+2)
-        y = np.arange(probabilities.shape[-1])
-        plt.grid()
-        plt.barh(y, probabilities[i])
-        plt.gca().invert_yaxis()
-        plt.gca().set_axisbelow(True)
-        plt.yticks(y, [id2classes[pred] for pred in predictions[i].numpy()])
-        plt.xlabel("probability")
-    
-    avg_prob, avg_pred = final_prediction.cpu().topk(5)
-    avg_prob = avg_prob.detach().numpy()
-    avg_pred = avg_pred.detach()
-    plt.subplot(6,4,22)
-    y = np.arange(avg_prob.shape[-1])
-    plt.grid()
-    plt.barh(y, avg_prob[0])
-    plt.gca().invert_yaxis()
-    plt.gca().set_axisbelow(True)
-    plt.yticks(y, [id2classes[index] for index in avg_pred[0].numpy()])
-    plt.xlabel("Final prediction (avg entropy)")    
-
-    plt.savefig(f"batch_reports/Batch{batch_n}.png")
-    plt.close()
-
-
-def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label: str, save_path:str=None)-> Image:
+def add_caption_loss(net: OurCLIP, captioner: Captioner, filtered_inputs, filtered_outputs, text_features, prompt="a ", _lambda=0.5, K=5):
     """
-    Creates histogram for class accuracies and log it with tensorboard and saves the plot
+    Adds caption loss to the filtered_outputs using the given captioner.
+
+    Args:
+        captioner (C): The captioner object used to generate captions.
+        filtered_inputs: The filtered inputs.
+        filtered_outputs: The filtered outputs.
+        prompt (str): The prompt used for generating captions. Default is "a ".
+        _lambda (float): The value of lambda used for computing the caption similarity. Default is 0.5.
+
+    Returns:
+        The updated filtered_outputs with caption loss added.
     """
-    classes = list(no_tpt_acc.keys())
-    x = np.arange(len(classes))
-    width = 0.35
-
-    fig, ax = plt.subplots(dpi=500)
-    ax.bar(x - width/2, no_tpt_acc.values(), width, color='b', label=no_tpt_label)
-    ax.bar(x + width/2, tpt_acc.values(), width, color='r', label=tpt_label)
     
-    ax.set_ylabel('Accuracy')
-    ax.set_title('Class accuracies')
-    ax.set_xticks(x)
-    ax.set_xticklabels(classes, rotation=-90, fontsize=2)
+    # TODO implement this function following the steps
+    # Compute captions for each augmentation using coca functions
+    device = filtered_inputs.device
+    with torch.no_grad(), torch.cuda.amp.autocast():
+        captions = captioner.generate_captions(filtered_inputs, prompt)
 
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    buf.seek(0)
+    # Encode all the captions using the clip encoder (batchfying the captions to save compute)
+    image_logits = net(filtered_inputs).softmax(-1)
+    caption_logits = (F.normalize(captions) @ F.normalize(text_features).T).softmax(-1)
 
-    image = Image.open(buf)
-    image = np.array(image)
+    top_k_values, top_k_predictions = image_logits.topk(K, dim=1)
+    _, top_k_c_values = caption_logits.topk(K, dim=1)
+    image_top_scores = 
 
-    if save_path:
-        plt.savefig(save_path)
+    # Compute the value of lambda following ice implementation row 193 main_ice.py
+    top_k_vals, top_k_predictions = text_features.topk(K, dim=1)
+    _, top_k_c_vals = caption_features.topk(K, dim=1)
+    coef = _lambda * F.normalize(
+        torch.stack(
+            top_k_vals.std(1), top_k_c_vals.std(1),
+            dim=1
+        ), dim = 1
+    ).to(device)
+    
 
-    return image
+    return filtered_outputs
+    
 
-def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, device="cuda", debug=False):
+def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", captioner=None, debug=False):
     batch_idx, inputs, targets = batch
-    # Set the network to training mode
-    net.train()
 
     inputs = inputs.to(device)
     targets = targets.to(device)
 
     # Forward pass
-    outputs = net(inputs)
+    outputs, text_features = net(inputs).softmax(-1)
 
-    # Filter out the predictions with high entropy
-    entropies = [entropy(t).item() for t in outputs.softmax(-1)]
-    # Calculate the threshold for the lowest entropies values
-    threshold = np.percentile(entropies, 15)
-    if scaler is None:
-        outputs = outputs.softmax(-1)
-        entropies = [0 if val > threshold else val for val in entropies]
-        indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
-        filtered_outputs = outputs[indices]
-        filtered_inputs = inputs[indices]
-        avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
-        prediction_entropy = entropy(avg_predictions).item()
+    filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_threshold=10, return_original=debug)
+    if captioner is not None:
+        filtered_outputs = add_caption_loss(net, captioner, filtered_inputs, filtered_outputs, text_features)
 
-        optimizer.zero_grad()
-        # loss = cost_function(avg_predictions, targets)
-        loss = avg_entropy(filtered_outputs)
-        
+    avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
+    prediction_entropy = entropy(avg_predictions).item()
+
+    optimizer.zero_grad()
+    loss = avg_entropy(filtered_outputs)
+
+    if scaler is None:        
         loss.backward()
-        if debug:
-            if torch.isnan(net.prompt_learner.ctx.grad).any():
-                print("NaN in context tokens gradient")
-                raise ValueError("NaN in context tokens gradient")
-            if torch.isinf(net.prompt_learner.ctx.grad).any():
-                print("Inf in context tokens gradient")
-                raise ValueError("Inf in context tokens gradient")
-
         optimizer.step()
     else:
         with torch.cuda.amp.autocast():
-            outputs = outputs.softmax(-1)
-            entropies = [0 if val > threshold else val for val in entropies]
-            indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
-            filtered_outputs = outputs[indices]
-            filtered_inputs = inputs[indices]
-            avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
-            prediction_entropy = entropy(avg_predictions).item()
-            loss = avg_entropy(filtered_outputs)
             scaler.scale(loss).backward()
-            if debug:
-                if torch.isnan(net.prompt_learner.ctx.grad).any():
-                    print("NaN in context tokens gradient")
-                    raise ValueError("NaN in context tokens gradient")
-                if torch.isinf(net.prompt_learner.ctx.grad).any():
-                    print("Inf in context tokens gradient")
-                    raise ValueError("Inf in context tokens gradient")
-            
             scaler.step(optimizer)
             scaler.update()
-    
-    if torch.isnan(net.prompt_learner.ctx).any():
-        print("NaN in context tokens")
-        raise ValueError("NaN in context tokens")
-    
-    if torch.isinf(net.prompt_learner.ctx).any():
-        print("Inf in context tokens")
-        raise ValueError("Inf in context tokens")
+        
     # show batch
     if debug:
         batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
@@ -210,7 +108,7 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
     prediction = avg_predictions.argmax(dim=1)
     return loss.item(), prediction, prediction_entropy
 
-def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, id2classes, device="cuda", debug=False):
+def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, id2classes, device="cuda", captioner=None, debug=False):
     samples = 0.0
     cumulative_loss = 0.0
     cumulative_accuracy = 0.0
@@ -224,59 +122,64 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
     optimizer_state = deepcopy(optimizer.state_dict())
 
     try:
-        # Disable gradient computation (we are only testing, we do not want our model to be modified in this step!)
         pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
-        for batch_idx, (inputs, targets) in enumerate(data_loader):
+        for batch_idx, (inputs, targets, _) in enumerate(data_loader):
             # Reset the prompt_learner to its initial state and the optimizer to its initial state
             with torch.no_grad():
                 net.reset()
                 optimizer.load_state_dict(optimizer_state)
 
-            # Optimize prompts using TTA and augmentations
-            # Get prediction without prompt optimization      
-            _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, scaler, cost_function, id2classes, device=device, debug=debug)
-            #_loss, no_tpt_prediction, no_tpt_prediction_entropy = 0, torch.tensor(-1), 0
+            _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, scaler, id2classes, device=device, captioner=captioner, debug=debug)
 
+            net.eval()
+            with torch.no_grad():
+                # Classification with the updated net
+                inputs = inputs[0].unsqueeze(0).to(device)
+                targets = targets.to(device)
+                outputs, _ = net(inputs)
+                loss = cost_function(outputs, targets)
+                prediction = outputs.argmax(dim=1)
+                prediction_entropy = entropy(prediction).item()
+
+                cumulative_loss += loss.item()
+                samples += 1
+
+            # Update accuracies
+            # ! this is not correct, we are not computing the accuracy 
+            # TODO fix this
+            # TODO create a specific class to handle the metrics operations hiding details
             if no_tpt_prediction.item() == targets.item():
                 no_tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
             else:
                 no_tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(0)
 
-            # Evaluate the trained prompts on the single sample
-            net.eval()
-            with torch.no_grad():
-                inputs = inputs[0].unsqueeze(0).to(device)
-                targets = targets.to(device)
-                outputs = net(inputs)
-                loss = cost_function(outputs, targets)
-                cumulative_loss += loss.item()
-                samples += 1
-                prediction = outputs.argmax(dim=1)
-                prediction_entropy = entropy(prediction).item()
+            values, predictions = outputs.topk(5)
+            if prediction == targets:
+                top1 += 1
+                tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
+            else:
+                tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(0)
+                pass
+            if targets.item() in predictions:
+                top5 += (targets.view(-1, 1) == predictions).sum().item()
 
-                values, predictions = outputs.topk(5)
-                if prediction == targets:
-                    top1 += 1
-                    tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
-                else:
-                    tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(0)
-                    pass
-                if targets.item() in predictions:
-                    top5 += (targets.view(-1, 1) == predictions).sum().item()
-
-                top1_str = id2classes[prediction.item()]
+            if debug:
                 top5_str = [id2classes[pred] for pred in predictions[0].tolist()]
                 target_str = id2classes[targets.item()]
-                loss_diff +=  _loss - loss.item() # comparison of loss with and without TPT
-                entropy_diff = prediction_entropy - no_tpt_prediction_entropy # comparison of entropy with and without TPT
-                
+                report_predictions(batch_idx, top5_str, values, target_str)
+
+            loss_diff +=  _loss - loss.item() # comparison of loss with and without TPT
+            entropy_diff = prediction_entropy - no_tpt_prediction_entropy # comparison of entropy with and without TPT
+            # Log Values
             writer.add_scalar("Delta_loss/test", loss_diff, batch_idx)
             writer.add_scalar("Delta_entropy/test", entropy_diff, batch_idx)
 
             pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100, top5=top5/samples * 100)
             pbar.update(1)
+
     except KeyboardInterrupt:
         print("User keyboard interrupt")
+
     except Exception:
         for c in id2classes.values():
             if len(no_tpt_class_acc[c]) == 0 or len(tpt_class_acc[c]) == 0:
@@ -286,23 +189,12 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
             writer.add_scalar(f"Class accuracy/{c}", no_tpt_acc, 0)
             writer.add_scalar(f"Class accuracy/{c}", tpt_acc, 1)
         # TODO plot histogram
+            pbar.close()
         raise
-        
-    pbar.close()
-    # Log the final values and class accuracies
-    # create histogram for class accuracies and log it with tensorboard
-    # Create single histograms for each class with a column for TPT and one for no TPT
-    
-    no_tpt_accuracies = {}
-    accuracies = {}
 
-    for c in id2classes.values():
-        if len(no_tpt_class_acc[c]) == 0 or len(tpt_class_acc[c]) == 0:
-            continue
-        no_tpt_accuracies[c] = sum(no_tpt_class_acc[c]) / len(no_tpt_class_acc[c])
-        accuracies[c] = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
-    
-    image = make_histogram(no_tpt_accuracies, accuracies, 'No TPT','TPT', save_path="results/imagenet_A/plots/accuracy_by_class.png")
+    # Draw histogram of class accuracies
+    no_tpt_accuracies, accuracies = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
+    image = make_histogram(no_tpt_accuracies, accuracies, 'No TPT','TPT', save_path=f"runs/{RUN_NAME}/accuracy_by_class.png")
     writer.add_image("Class accuracies", image, 0, dataformats="HWC")
 
     return cumulative_loss / samples, cumulative_accuracy / samples * 100
@@ -311,24 +203,26 @@ def main(
     dataset_name="imagenet_a",
     backbone="RN50",
     device="mps",
-    batch_size=16,
+    batch_size=64,
     learning_rate=0.005,
     tta_steps=2,
-    run_name="exp5",
+    run_name="exp6",
     n_ctx=4,
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
+    ice_loss=True,
     debug=DEBUG
 ):
     print("Using manual seed")
     torch.manual_seed(0)
     # Create a logger for the experiment
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
+    RUN_NAME = run_name
 
     _, preprocess = clip.load(backbone, device=device)
     
-    data_transform = Augmixer(preprocess, batch_size, severity=3)
+    data_transform = Augmixer(preprocess, batch_size, augmix=True, severity=1)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
         dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=True
@@ -344,10 +238,7 @@ def main(
         csc=csc,
     ).to(device)
 
-    load_pretrained_coop(backbone, net)
-
-    # Instantiate the optimizer
-    #optimizer = get_optimizer(net, learning_rate)
+    load_pretrained_coop(backbone, net, device)
 
     print("Turning off gradients in both the image and the text encoder")
     for name, param in net.named_parameters():
@@ -360,16 +251,24 @@ def main(
     )
 
     trainable_param = net.prompt_learner.parameters()
-    optimizer = torch.optim.AdamW(trainable_param, learning_rate)
+    optimizer = get_optimizer(trainable_param, learning_rate)
+
+    cost_function = get_loss_function()
+
     if device == 'cuda':
         scaler = torch.cuda.amp.GradScaler(init_scale=1000)
     else:
         scaler = None
-    # Define the cost function
-    cost_function = get_cost_function()
+
+    # Instantiate the captioner if needed
+    captioner = None
+    if ice_loss:
+        model_name = "coca_ViT-L-14"
+        version = "laion2B-s13B-b90k"
+        captioner = Captioner(model_name=model_name, version=version, device=device)
 
     print("Beginning testing with TPT:")
-    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, scaler, cost_function, writer, id2classes=id2class, device=device, debug=debug)
+    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, scaler, writer, id2classes=id2class, device=device, captioner=captioner, debug=debug)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
     # Closes the logger
     

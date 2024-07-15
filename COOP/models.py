@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import open_clip
 from CLIP import clip
 from CLIP.clip.simple_tokenizer import SimpleTokenizer as _Tokenizer
 
@@ -156,22 +157,19 @@ class PromptLearner(nn.Module):
         ctx_vectors = self.ctx_init_state
         with torch.no_grad():
             self.ctx.copy_(ctx_vectors) # to be optimized
-        # if self.learned_cls:
-        #     cls_vectors = self.cls_init_state
-        #     self.cls.copy_(cls_vectors)
 
 class OurCLIP(nn.Module):
 
     def __init__(self, classnames, n_ctx, ctx_init, class_token_position, backbone="RN50", csc=False):
         super().__init__()
         clip_model, _ = clip.load(backbone)
-        # clip_model = clip_model.cpu()
         clip_model = clip_model.float()
         
         self.prompt_learner = PromptLearner(clip_model, classnames, n_ctx, ctx_init, class_token_position, csc=csc)
         self.tokenized_prompts = self.prompt_learner.tokenized_prompts
         self.image_encoder = clip_model.visual
-        self.text_encoder = TextEncoder(clip_model)
+        self.text_encoder_tpt = TextEncoder(clip_model) # this encoder can learn prompts
+        self.text_encoder = clip_model.transformer # this encoder is the std CLIP encoder for text
         self.logit_scale = clip_model.logit_scale
 
     def forward(self, image):
@@ -179,7 +177,7 @@ class OurCLIP(nn.Module):
 
         prompts = self.prompt_learner()
         tokenized_prompts = self.tokenized_prompts
-        text_features = self.text_encoder(prompts, tokenized_prompts)
+        text_features = self.text_encoder_tpt(prompts, tokenized_prompts)
 
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
@@ -187,7 +185,7 @@ class OurCLIP(nn.Module):
         logit_scale = self.logit_scale.exp()
         logits = logit_scale * image_features @ text_features.t()
 
-        return logits
+        return logits, text_features
     
     def reset(self):
         self.prompt_learner.reset()
