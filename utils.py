@@ -185,7 +185,7 @@ def batch_report(inputs:torch.Tensor, outputs: torch.Tensor, final_prediction:to
     :param: id2classes: dict: mapping from class index to class name
     :param: batch_n: int: batch number
 
-    TODO: Add original images[Optional] to the report, next to the average prediction
+    TODO: Fix spacing in between images
     """
     from matplotlib import pyplot as plt
     max_plots = 10
@@ -231,6 +231,7 @@ def batch_report(inputs:torch.Tensor, outputs: torch.Tensor, final_prediction:to
     plt.subplot(6,4, 22)
     plt.imshow(images[0])
     plt.axis('off')
+    plt.xlabel("Original image")
 
     # Final prediction
     plt.subplot(6,4, 2*i+1)
@@ -325,13 +326,13 @@ def compute_accuracies(id2classes:dict, no_tpt_class_acc:dict, tpt_class_acc:dic
 
     return no_tpt_accuracies, accuracies
 
-def filter_on_entropy(inputs:torch.Tensor, outputs:torch.Tensor, p_threshold:int=10, return_original=False):
+def filter_on_entropy(inputs:torch.Tensor, outputs:torch.Tensor, p_threshold:int=10, return_original:bool=False):
     """
     Return all inputs and outputs where prediction entropy is in the 'p' percentile
     :param: inputs: torch.Tensor: batch of inputs
     :param: outputs: torch.Tensor: batch of outputs
     :param: p_threshold: int: percentile threshold
-    :param: return_original: return the original image of the batch
+    :param: return_original: bool: return the original image of the batch
     """
     entropies = [entropy(t).item() for t in outputs]
     entropies = [0 if val > p_threshold else 1 for val in entropies]
