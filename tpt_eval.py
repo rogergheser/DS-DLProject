@@ -26,7 +26,7 @@ from utils import (entropy, avg_entropy, batch_report, filter_on_entropy,
 from copy import deepcopy
 
 DEBUG = True
-
+RUN_NAME = "exp6"
 
 def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, device="cuda", debug=False):
     batch_idx, inputs, targets = batch
@@ -148,7 +148,7 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
 
     # Draw histogram of class accuracies
     no_tpt_accuracies, accuracies = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
-    image = make_histogram(no_tpt_accuracies, accuracies, 'No TPT','TPT', save_path="results/imagenet_A/plots/accuracy_by_class.png")
+    image = make_histogram(no_tpt_accuracies, accuracies, 'No TPT','TPT', save_path=f"runs/{RUN_NAME}/accuracy_by_class.png")
     writer.add_image("Class accuracies", image, 0, dataformats="HWC")
 
     return cumulative_loss / samples, cumulative_accuracy / samples * 100
@@ -171,6 +171,7 @@ def main(
     torch.manual_seed(0)
     # Create a logger for the experiment
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
+    RUN_NAME = run_name
 
     _, preprocess = clip.load(backbone, device=device)
     
