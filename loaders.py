@@ -128,3 +128,29 @@ class Augmixer(object):
             img = random.choice(self.post_auglist)(img)
 
         return img
+    
+
+def load_pretrained_coop(backbone, _model, device="cuda"):
+    """
+    Loads coop pretrained context
+    """
+    # TODO Makes this function cleaner and more robust
+    if backbone.lower() == "rn50":
+        _backbone = "rn50"
+    elif backbone.lower() == "rn101":
+        _backbone = "rn101"
+    elif backbone.lower() == "vit_b16" or backbone.lower() == "vit-b/16":
+        _backbone = "vit_b16"
+    elif backbone.lower() == "vit_b32" or backbone.lower() == "vit-b/32":
+        _backbone = "vit_b32"
+    else:
+        raise ValueError(f"Unknown backbone {backbone}")
+
+    path = f"bin/coop/{_backbone}_ep50_16shots/nctx4_cscFalse_ctpend/seed1/prompt_learner/model.pth.tar-50"
+    assert os.path.exists(path), f"Path {path} does not exist"
+
+    pretrained_ctx = torch.load(path, device)['state_dict']['ctx']
+    assert pretrained_ctx.size()[0] == _model.prompt_learner.n_ctx, f"Number of context tokens mismatch: {_model.prompt_learner.n_ctx} vs {pretrained_ctx.size()[0]}"
+    with torch.no_grad():
+        _model.prompt_learner.ctx.copy_(pretrained_ctx)
+        _model.prompt_learner.ctx_init_state = pretrained_ctx
