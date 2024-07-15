@@ -153,15 +153,18 @@ def caption_report(images, label, outputs, id2class, idx):
     images = [image.numpy().transpose(1, 2, 0) for image in denormalized_images.cpu()] # Convert to numpy and transpose to (H, W, C)
     label = [lab.item() for lab in label.cpu()] if label.shape[0] > 1 else label.item()
 
-    plt.figure(figsize=(16, 16))
+    plt.figure(figsize=(16, 16), dpi=300)
     plt.title(f"Captions generated from the {idx}th batch")
     plt.axis('off')
 
-    for i, image in enumerate(images[:10]):
-        plt.subplot(3,3, i+1, axis='off', title=id2class[label[i]], subtitle=outputs[i])
+    for i, image in enumerate(images[:9]):
+        plt.subplot(3,3, i+1)
+        plt.title(id2class[label[i]])
+        plt.xlabel(outputs[i])
         plt.imshow(image)
 
-    plt.show()
+    plt.savefig(f"caption_reports/batch_{idx}.png")
+    plt.close()
 
 
 if __name__ == '__main__':

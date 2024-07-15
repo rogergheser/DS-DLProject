@@ -7,4 +7,5 @@ bin/coop/
 __pycache__
 batch_reports/
 batch_predictions/
+caption_reports
 .dl-cache/
