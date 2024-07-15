@@ -3,7 +3,7 @@ import torch
 import open_clip
 import tqdm
 from torchvision.transforms import transforms
-from COOP.dataloader import get_data
+from COOP.dataloader import get_data, Augmixer
 
 path = 'ice/captions/{}_captions/captions_{}{}'
 
@@ -154,12 +154,12 @@ def caption_report(images, label, outputs, id2class, idx):
     label = [lab.item() for lab in label.cpu()] if label.shape[0] > 1 else label.item()
 
     plt.figure(figsize=(16, 16), dpi=300)
-    plt.title(f"Captions generated from the {idx}th batch")
+    plt.title(f"Captions generated from the {idx}th batch") if isinstance(label, list) else plt.title(f"Caption for {id2class[label]} class")
     plt.axis('off')
 
     for i, image in enumerate(images[:9]):
         plt.subplot(3,3, i+1)
-        plt.title(id2class[label[i]])
+        plt.title(id2class[label[i]]) if isinstance(label, list) else id2class[label]
         plt.xlabel(outputs[i])
         plt.imshow(image)
 
@@ -187,7 +187,9 @@ if __name__ == '__main__':
     )
     caption_model.to(device)
 
-    _, _, data, classes, id2class = get_data('imagenet_a', 32, preprocess, True, 0.0, 0.0)
+    data_transform = Augmixer(preprocess, 32, augmix=True, severity=1)
+
+    _, _, data, classes, id2class = get_data('imagenet_a', 1, data_transform, True, 0.0, 0.0)
 
     answers = []
     loop = tqdm.tqdm(enumerate(data), total=len(data))
@@ -204,5 +206,3 @@ if __name__ == '__main__':
             )
 
         caption_report(images, label, outputs, id2class, idx)
-
-        print(outputs)

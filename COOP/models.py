@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import open_clip
 from CLIP import clip
 from CLIP.clip.simple_tokenizer import SimpleTokenizer as _Tokenizer
 
@@ -156,16 +157,12 @@ class PromptLearner(nn.Module):
         ctx_vectors = self.ctx_init_state
         with torch.no_grad():
             self.ctx.copy_(ctx_vectors) # to be optimized
-        # if self.learned_cls:
-        #     cls_vectors = self.cls_init_state
-        #     self.cls.copy_(cls_vectors)
 
 class OurCLIP(nn.Module):
 
     def __init__(self, classnames, n_ctx, ctx_init, class_token_position, backbone="RN50", csc=False):
         super().__init__()
         clip_model, _ = clip.load(backbone)
-        # clip_model = clip_model.cpu()
         clip_model = clip_model.float()
         
         self.prompt_learner = PromptLearner(clip_model, classnames, n_ctx, ctx_init, class_token_position, csc=csc)
