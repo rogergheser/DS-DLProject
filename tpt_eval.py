@@ -54,22 +54,6 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
-    
-    if debug:
-        if torch.isnan(net.prompt_learner.ctx.grad).any():
-            print("NaN in context tokens gradient")
-            raise ValueError("NaN in context tokens gradient")
-        if torch.isinf(net.prompt_learner.ctx.grad).any():
-            print("Inf in context tokens gradient")
-            raise ValueError("Inf in context tokens gradient")
-        
-        if torch.isnan(net.prompt_learner.ctx).any():
-            print("NaN in context tokens")
-            raise ValueError("NaN in context tokens")
-        
-        if torch.isinf(net.prompt_learner.ctx).any():
-            print("Inf in context tokens")
-            raise ValueError("Inf in context tokens")
         
     # show batch
     if debug:
@@ -103,18 +87,21 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
 
             net.eval()
             with torch.no_grad():
+                # Classification with the updated net
                 inputs = inputs[0].unsqueeze(0).to(device)
                 targets = targets.to(device)
                 outputs = net(inputs)
                 loss = cost_function(outputs, targets)
-                cumulative_loss += loss.item()
-                samples += 1
                 prediction = outputs.argmax(dim=1)
                 prediction_entropy = entropy(prediction).item()
+
+                cumulative_loss += loss.item()
+                samples += 1
 
             # Update accuracies
             # ! this is not correct, we are not computing the accuracy 
             # TODO fix this
+            # TODO create a specific class to handle the metrics operations hiding details
             if no_tpt_prediction.item() == targets.item():
                 no_tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
             else:
