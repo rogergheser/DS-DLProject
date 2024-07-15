@@ -41,8 +41,10 @@ def load_pretrained_coop(backbone, _model):
     path = f"bin/coop/{_backbone}_ep50_16shots/nctx4_cscFalse_ctpend/seed1/prompt_learner/model.pth.tar-50"
     assert os.path.exists(path), f"Path {path} does not exist"
 
+    # Load the context gained from the COOP weights and insert it into the model
     pretrained_ctx = torch.load(path, DEVICE)['state_dict']['ctx']
     assert pretrained_ctx.size()[0] == _model.prompt_learner.n_ctx, f"Number of context tokens mismatch: {_model.prompt_learner.n_ctx} vs {pretrained_ctx.size()[0]}"
+    # Turn off the gradients of the image and text encoders so that they don't change
     with torch.no_grad():
         _model.prompt_learner.ctx.copy_(pretrained_ctx)
         _model.prompt_learner.ctx_init_state = pretrained_ctx
