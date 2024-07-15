@@ -28,7 +28,18 @@ from copy import deepcopy
 DEBUG = True
 RUN_NAME = "exp6"
 
-def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, device="cuda", debug=False):
+def add_caption_loss(filtered_outputs, _lambda=0.5):
+    # TODO implement this function following the steps
+    # Compute captions for each augmentation using coca functions
+    # Encode all the captions using the clip encoder (batchfying the captions to save compute)
+    # Compute the similarity matrix between the captions encoded and class prompt encoded (getting them somehow from the model)
+    # Compute the value of lambda following ice implementation row 193 main_ice.py
+    # Update the logits obtain from clip (filtered_outputs) using the caption similarity
+
+    return filtered_outputs
+    
+
+def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, device="cuda", ice_loss=False, debug=False):
     batch_idx, inputs, targets = batch
 
     inputs = inputs.to(device)
@@ -38,12 +49,13 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
     outputs = net(inputs).softmax(-1)
 
     filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_threshold=10, return_original=debug)
+    if ice_loss:
+        filtered_outputs = add_caption_loss(filtered_outputs, _lambda=0.5)
 
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
     prediction_entropy = entropy(avg_predictions).item()
 
     optimizer.zero_grad()
-    loss = cost_function(avg_predictions, targets)
     loss = avg_entropy(filtered_outputs)
 
     if scaler is None:        
@@ -62,7 +74,7 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
     prediction = avg_predictions.argmax(dim=1)
     return loss.item(), prediction, prediction_entropy
 
-def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, id2classes, device="cuda", debug=False):
+def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, id2classes, device="cuda", ice_loss=False, debug=False):
     samples = 0.0
     cumulative_loss = 0.0
     cumulative_accuracy = 0.0
@@ -83,7 +95,7 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
                 net.reset()
                 optimizer.load_state_dict(optimizer_state)
 
-            _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, scaler, cost_function, id2classes, device=device, debug=debug)
+            _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, scaler, cost_function, id2classes, device=device, ice_loss=ice_loss, debug=debug)
 
             net.eval()
             with torch.no_grad():
@@ -165,6 +177,7 @@ def main(
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
+    ice_loss=True,
     debug=DEBUG
 ):
     print("Using manual seed")
@@ -214,7 +227,7 @@ def main(
     cost_function = get_cost_function()
 
     print("Beginning testing with TPT:")
-    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, scaler, cost_function, writer, id2classes=id2class, device=device, debug=debug)
+    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, scaler, cost_function, writer, id2classes=id2class, device=device, ice_loss=ice_loss, debug=debug)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
     # Closes the logger
     
