@@ -188,6 +188,8 @@ def batch_report(inputs:torch.Tensor, outputs: torch.Tensor, final_prediction:to
     TODO: Add original images[Optional] to the report, next to the average prediction
     """
     from matplotlib import pyplot as plt
+    max_plots = 10
+
     probabilities, predictions = outputs.cpu().topk(5)
     probabilities = probabilities.detach().numpy()
     predictions = predictions.detach()
@@ -199,8 +201,6 @@ def batch_report(inputs:torch.Tensor, outputs: torch.Tensor, final_prediction:to
     std = torch.tensor(clip_std).reshape(1, 3, 1, 1)
 
     # Denormalize the batch of images
-    # denormalized_images = inputs.cpu() * std + mean
-    # denormalized_images = denormalized_images.numpy().astype('uint8')
     unnormalize = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
     denormalized_images = unnormalize(inputs)
 
@@ -211,10 +211,10 @@ def batch_report(inputs:torch.Tensor, outputs: torch.Tensor, final_prediction:to
     label = id2classes[target[0].item()]
 
     plt.figure(figsize=(16,16))
-    plt.title(f"Image batch of {label} - min entropy 10 percentile selected\n{datetime.datetime.now()}")
+    plt.title(f"Image batch of {label} - min entropy {max_plots} percentile selected\n{datetime.now()}")
     plt.axis('off')
 
-    for i, image in enumerate(images[:10]):
+    for i, image in enumerate(images[:max_plots]):
         plt.subplot(6,4, 2*i+1)
         plt.imshow(image)
         plt.axis('off')
@@ -227,11 +227,19 @@ def batch_report(inputs:torch.Tensor, outputs: torch.Tensor, final_prediction:to
         plt.gca().set_axisbelow(True)
         plt.yticks(y, [id2classes[pred] for pred in predictions[i].numpy()])
         plt.xlabel("probability")
-    
+    # Original image
+    plt.subplot(6,4, 22)
+    plt.imshow(images[0])
+    plt.axis('off')
+
+    # Final prediction
+    plt.subplot(6,4, 2*i+1)
+    plt.imshow(image)
+    plt.axis('off')
     avg_prob, avg_pred = final_prediction.cpu().topk(5)
     avg_prob = avg_prob.detach().numpy()
     avg_pred = avg_pred.detach()
-    plt.subplot(6,4,22)
+    plt.subplot(6,4,23)
     y = np.arange(avg_prob.shape[-1])
     plt.grid()
     plt.barh(y, avg_prob[0])
@@ -295,7 +303,7 @@ def report_predictions(idx:int, predictions:str, values:float, target:str):
         f.write(f"Target: {target}\n")
         for pred, value in zip(predictions, values[0]):
             f.write(f"\t{pred}: {value:.2f}\n")
-        f.write(f"{datetime.datetime.now()}")
+        f.write(f"{datetime.now()}")
 
 def compute_accuracies(id2classes:dict, no_tpt_class_acc:dict, tpt_class_acc:dict):
     """
@@ -317,15 +325,19 @@ def compute_accuracies(id2classes:dict, no_tpt_class_acc:dict, tpt_class_acc:dic
 
     return no_tpt_accuracies, accuracies
 
-def filter_on_entropy(inputs:torch.Tensor, outputs:torch.Tensor, p_threshold:int=10):
+def filter_on_entropy(inputs:torch.Tensor, outputs:torch.Tensor, p_threshold:int=10, return_original=False):
     """
     Return all inputs and outputs where prediction entropy is in the 'p' percentile
     :param: inputs: torch.Tensor: batch of inputs
     :param: outputs: torch.Tensor: batch of outputs
     :param: p_threshold: int: percentile threshold
+    :param: return_original: return the original image of the batch
     """
     entropies = [entropy(t).item() for t in outputs]
     entropies = [0 if val > p_threshold else 1 for val in entropies]
     indices = torch.nonzero(torch.tensor(entropies)).squeeze(1)
+
+    if return_original and 0 not in indices:
+        indices.insert(0,0)
 
     return inputs[indices], outputs[indices]
