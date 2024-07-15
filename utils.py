@@ -342,3 +342,33 @@ def filter_on_entropy(inputs:torch.Tensor, outputs:torch.Tensor, p_threshold:int
         indices.insert(0,0)
 
     return inputs[indices], outputs[indices]
+
+def caption_report(images, label, outputs, id2class, idx):
+    import matplotlib.pyplot as plt
+
+    clip_mean = [0.48145466, 0.4578275, 0.40821073]
+    clip_std = [0.26862954, 0.26130258, 0.27577711]
+
+    mean = torch.tensor(clip_mean).reshape(1, 3, 1, 1)
+    std = torch.tensor(clip_std).reshape(1, 3, 1, 1)
+
+    # Denormalize the batch of images
+    unnormalize = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
+    denormalized_images = unnormalize(images)
+
+    # Visualise the input using matplotlib
+    images = [image.numpy().transpose(1, 2, 0) for image in denormalized_images.cpu()] # Convert to numpy and transpose to (H, W, C)
+    label = [lab.item() for lab in label.cpu()] if label.shape[0] > 1 else label.item()
+
+    plt.figure(figsize=(16, 16), dpi=300)
+    plt.title(f"Captions generated from the {idx}th batch") if isinstance(label, list) else plt.title(f"Caption for {id2class[label]} class")
+    plt.axis('off')
+
+    for i, image in enumerate(images[:9]):
+        plt.subplot(3,3, i+1)
+        plt.title(id2class[label[i]]) if isinstance(label, list) else id2class[label]
+        plt.xlabel(outputs[i])
+        plt.imshow(image)
+
+    plt.savefig(f"caption_reports/batch_{idx}.png")
+    plt.close()
