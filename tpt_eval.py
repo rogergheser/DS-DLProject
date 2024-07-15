@@ -25,7 +25,7 @@ from utils import (entropy, avg_entropy, batch_report, filter_on_entropy,
                 report_predictions, make_histogram, compute_accuracies)
 from copy import deepcopy
 
-DEBUG = False
+DEBUG = True
 
 
 def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, device="cuda", debug=False):
@@ -37,7 +37,7 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
     # Forward pass
     outputs = net(inputs).softmax(-1)
 
-    filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_threshold=10)
+    filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_threshold=10, return_original=debug)
 
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
     prediction_entropy = entropy(avg_predictions).item()
