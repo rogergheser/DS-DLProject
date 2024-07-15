@@ -7,3 +7,4 @@ bin/coop/
 __pycache__
 batch_reports/
 batch_predictions/
+.dlcache/
