@@ -7,3 +7,4 @@ typing==3.7.4.3
 torch==2.3.1
 torchvision==0.18.1
 tqdm==4.66.2
+open_clip_torch
