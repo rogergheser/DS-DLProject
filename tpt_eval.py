@@ -16,30 +16,75 @@ except ImportError:
 from CLIP import clip
 
 from COOP.models import OurCLIP
-from COOP.utils import get_optimizer, get_cost_function, log_values
+from COOP.utils import get_optimizer, log_values, get_loss_function
 from COOP.functions import training_step, test_step
 from COOP.dataloader import get_data
+from coca_model import Captioner
 from loaders import Augmixer, load_pretrained_coop
 from tqdm import tqdm
 from utils import (entropy, avg_entropy, batch_report, filter_on_entropy,
                 report_predictions, make_histogram, compute_accuracies)
 from copy import deepcopy
+import torch.nn.functional as F
 
 DEBUG = True
 RUN_NAME = "exp6"
 
-def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, device="cuda", debug=False):
+def add_caption_loss(net: OurCLIP, captioner: Captioner, filtered_inputs, filtered_outputs, text_features, prompt="a ", _lambda=0.5, K=5):
+    """
+    Adds caption loss to the filtered_outputs using the given captioner.
+
+    Args:
+        captioner (C): The captioner object used to generate captions.
+        filtered_inputs: The filtered inputs.
+        filtered_outputs: The filtered outputs.
+        prompt (str): The prompt used for generating captions. Default is "a ".
+        _lambda (float): The value of lambda used for computing the caption similarity. Default is 0.5.
+
+    Returns:
+        The updated filtered_outputs with caption loss added.
+    """
+    
+    # TODO implement this function following the steps
+    # Compute captions for each augmentation using coca functions
+    device = filtered_inputs.device
+    with torch.no_grad(), torch.cuda.amp.autocast():
+        captions = captioner.generate_captions(filtered_inputs, prompt)
+
+    # Encode all the captions using the clip encoder (batchfying the captions to save compute)
+    image_logits = net(filtered_inputs).softmax(-1)
+    caption_logits = (F.normalize(captions) @ F.normalize(text_features).T).softmax(-1)
+
+    top_k_values, top_k_predictions = image_logits.topk(K, dim=1)
+    _, top_k_c_values = caption_logits.topk(K, dim=1)
+    image_top_scores = 
+
+    # Compute the value of lambda following ice implementation row 193 main_ice.py
+    top_k_vals, top_k_predictions = text_features.topk(K, dim=1)
+    _, top_k_c_vals = caption_features.topk(K, dim=1)
+    coef = _lambda * F.normalize(
+        torch.stack(
+            top_k_vals.std(1), top_k_c_vals.std(1),
+            dim=1
+        ), dim = 1
+    ).to(device)
+    
+
+    return filtered_outputs
+    
+
+def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", captioner=None, debug=False):
     batch_idx, inputs, targets = batch
 
     inputs = inputs.to(device)
     targets = targets.to(device)
 
     # Forward pass
-    outputs = net(inputs).softmax(-1)
+    outputs, text_features = net(inputs).softmax(-1)
 
     filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_threshold=10, return_original=debug)
-    if ice_loss:
-        filtered_outputs = add_caption_loss(filtered_outputs, _lambda=0.5)
+    if captioner is not None:
+        filtered_outputs = add_caption_loss(net, captioner, filtered_inputs, filtered_outputs, text_features)
 
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
     prediction_entropy = entropy(avg_predictions).item()
@@ -63,7 +108,7 @@ def tta_net_train(batch, net, optimizer, scaler, cost_function, id2classes, devi
     prediction = avg_predictions.argmax(dim=1)
     return loss.item(), prediction, prediction_entropy
 
-def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, id2classes, device="cuda", ice_loss=False, debug=False):
+def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, id2classes, device="cuda", captioner=None, debug=False):
     samples = 0.0
     cumulative_loss = 0.0
     cumulative_accuracy = 0.0
@@ -84,14 +129,14 @@ def tpt_train_loop(data_loader, net, optimizer, scaler, cost_function, writer, i
                 net.reset()
                 optimizer.load_state_dict(optimizer_state)
 
-            _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, scaler, cost_function, id2classes, device=device, ice_loss=ice_loss, debug=debug)
+            _loss, no_tpt_prediction, no_tpt_prediction_entropy = tta_net_train((batch_idx, inputs, targets), net, optimizer, scaler, id2classes, device=device, captioner=captioner, debug=debug)
 
             net.eval()
             with torch.no_grad():
                 # Classification with the updated net
                 inputs = inputs[0].unsqueeze(0).to(device)
                 targets = targets.to(device)
-                outputs = net(inputs)
+                outputs, _ = net(inputs)
                 loss = cost_function(outputs, targets)
                 prediction = outputs.argmax(dim=1)
                 prediction_entropy = entropy(prediction).item()
@@ -208,15 +253,22 @@ def main(
     trainable_param = net.prompt_learner.parameters()
     optimizer = get_optimizer(trainable_param, learning_rate)
 
+    cost_function = get_loss_function()
+
     if device == 'cuda':
         scaler = torch.cuda.amp.GradScaler(init_scale=1000)
     else:
         scaler = None
-    # Define the cost function
-    cost_function = get_cost_function()
+
+    # Instantiate the captioner if needed
+    captioner = None
+    if ice_loss:
+        model_name = "coca_ViT-L-14"
+        version = "laion2B-s13B-b90k"
+        captioner = Captioner(model_name=model_name, version=version, device=device)
 
     print("Beginning testing with TPT:")
-    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, scaler, cost_function, writer, id2classes=id2class, device=device, ice_loss=ice_loss, debug=debug)
+    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, scaler, writer, id2classes=id2class, device=device, captioner=captioner, debug=debug)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
     # Closes the logger
     

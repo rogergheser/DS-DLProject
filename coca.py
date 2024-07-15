@@ -4,6 +4,7 @@ import open_clip
 import tqdm
 from torchvision.transforms import transforms
 from COOP.dataloader import get_data, Augmixer
+from utils import caption_report
 
 path = 'ice/captions/{}_captions/captions_{}{}'
 
@@ -56,6 +57,16 @@ captions = {
 }
 
 def _tokenize(x, tokenizer):
+    """
+    Tokenizes the input text using the provided tokenizer.
+
+    Args:
+        x (str): The input text to tokenize.
+        tokenizer: The tokenizer object.
+
+    Returns:
+        torch.Tensor: The tokenized input text.
+    """
     x_tokenized = tokenizer(x).squeeze()
     start_token = 49406
     end_token = 49407
@@ -63,6 +74,17 @@ def _tokenize(x, tokenizer):
     return x_tokenized[:list(x_tokenized).index(end_token)]
 
 def _generate_macro(caption_model, im, prompt):
+    """
+    Generates captions for the given images using the caption model.
+
+    Args:
+        caption_model: The caption model.
+        im: The input images.
+        prompt: The prompt for caption generation.
+
+    Returns:
+        torch.Tensor: The generated captions.
+    """
     text=torch.ones((im.shape[0], 1), device=device, dtype=torch.long)*prompt
     generated = caption_model.generate(
                 im, 
@@ -71,6 +93,12 @@ def _generate_macro(caption_model, im, prompt):
     return generated
 
 def get_test_transform():
+    """
+    Returns the transformation pipeline for test images.
+
+    Returns:
+        torchvision.transforms.Compose: The transformation pipeline.
+    """
     return transforms.Compose(
         [transforms.Resize(size=224, max_size=None, antialias=None),
         transforms.CenterCrop(size=(224, 224)),
@@ -78,7 +106,19 @@ def get_test_transform():
         transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))]
     )
 
-def generate_captions(images, caption_model, prompt, tokenizer, device):
+def generate_captions(self, images, prompt, tokenizer, device)->list:
+    """
+    Generates captions for the given images.
+
+    Args:
+        images: The input images.
+        prompt (str): The prompt for caption generation.
+        tokenizer: The tokenizer object.
+        device (str): The device to run the model on.
+
+    Returns:
+        list: The generated captions.
+    """
     caption_model.eval()
     
     outputs = []
@@ -95,6 +135,15 @@ def generate_captions(images, caption_model, prompt, tokenizer, device):
     return outputs
 
 def process_line_imagenetA(x):
+    """
+    Processes a line of data for ImageNetA dataset.
+
+    Args:
+        x (str): The input line.
+
+    Returns:
+        tuple: The processed path and caption.
+    """
     raw_path, caption = x.split('<sep>')
     caption = '<sep>' + caption.strip(" \n")
 
@@ -107,6 +156,15 @@ def process_line_imagenetA(x):
     return ret_path, caption
 
 def process_line_imagenetV2(x):
+    """
+    Processes a line of data for ImageNetV2 dataset.
+
+    Args:
+        x (str): The input line.
+
+    Returns:
+        tuple: The processed path and caption.
+    """
     raw_path, caption = x.split('<sep>')
     caption = '<sep>' + caption.strip(" \n")
 
@@ -117,6 +175,12 @@ def process_line_imagenetV2(x):
     return ret_path, caption
 
 def get_captions()->dict:
+    """
+    Retrieves the captions for all datasets and options.
+
+    Returns:
+        dict: The captions dictionary.
+    """
     for captioner in captioners:
         for dataset in datasets:
             for option in options[captioner]:
@@ -135,36 +199,6 @@ def get_captions()->dict:
                         # TODO check which part of the path we want to keep
                         captions[captioner][dataset][option][ret_path] = caption
     return captions
-
-def caption_report(images, label, outputs, id2class, idx):
-    import matplotlib.pyplot as plt
-
-    clip_mean = [0.48145466, 0.4578275, 0.40821073]
-    clip_std = [0.26862954, 0.26130258, 0.27577711]
-
-    mean = torch.tensor(clip_mean).reshape(1, 3, 1, 1)
-    std = torch.tensor(clip_std).reshape(1, 3, 1, 1)
-
-    # Denormalize the batch of images
-    unnormalize = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
-    denormalized_images = unnormalize(images)
-
-    # Visualise the input using matplotlib
-    images = [image.numpy().transpose(1, 2, 0) for image in denormalized_images.cpu()] # Convert to numpy and transpose to (H, W, C)
-    label = [lab.item() for lab in label.cpu()] if label.shape[0] > 1 else label.item()
-
-    plt.figure(figsize=(16, 16), dpi=300)
-    plt.title(f"Captions generated from the {idx}th batch") if isinstance(label, list) else plt.title(f"Caption for {id2class[label]} class")
-    plt.axis('off')
-
-    for i, image in enumerate(images[:9]):
-        plt.subplot(3,3, i+1)
-        plt.title(id2class[label[i]]) if isinstance(label, list) else id2class[label]
-        plt.xlabel(outputs[i])
-        plt.imshow(image)
-
-    plt.savefig(f"caption_reports/batch_{idx}.png")
-    plt.close()
 
 
 if __name__ == '__main__':
