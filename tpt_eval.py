@@ -48,16 +48,18 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, filtered_inputs, filter
     # TODO implement this function following the steps
     # Compute captions for each augmentation using coca functions
     device = filtered_inputs.device
-    with torch.no_grad(), torch.cuda.amp.autocast():
-        captions = captioner.generate_captions(filtered_inputs, prompt)
-
+    # with torch.no_grad(), torch.cuda.amp.autocast():
+    #     captions = captioner.generate_captions(filtered_inputs, prompt)
+    captions = torch.randn(16, 100).to(device)
     # Encode all the captions using the clip encoder (batchfying the captions to save compute)
-    image_logits = net(filtered_inputs).softmax(-1)
-    caption_logits = (F.normalize(captions) @ F.normalize(text_features).T).softmax(-1)
+    # TODO: use encode_text from clip to have tokenizing and pos encoding done
+    caption_features = net.text_encoder(captions).to(device) 
+    caption_logits = (F.normalize(caption_features) @ text_features.T).softmax(-1)
+    image_logits = filtered_outputs
 
-    top_k_values, top_k_predictions = image_logits.topk(K, dim=1)
-    _, top_k_c_values = caption_logits.topk(K, dim=1)
-    image_top_scores = 
+    top_k_values, top_k_predictions = image_logits.topk(K)
+    _, top_k_c_values = caption_logits.topk(K)
+    # image_top_scores = 
 
     # Compute the value of lambda following ice implementation row 193 main_ice.py
     top_k_vals, top_k_predictions = text_features.topk(K, dim=1)
@@ -80,7 +82,8 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     targets = targets.to(device)
 
     # Forward pass
-    outputs, text_features = net(inputs).softmax(-1)
+    outputs, text_features = net(inputs)
+    outputs = outputs.softmax(dim=-1)
 
     filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_threshold=10, return_original=debug)
     if captioner is not None:
@@ -203,7 +206,7 @@ def main(
     dataset_name="imagenet_a",
     backbone="RN50",
     device="mps",
-    batch_size=64,
+    batch_size=16,
     learning_rate=0.005,
     tta_steps=2,
     run_name="exp6",
