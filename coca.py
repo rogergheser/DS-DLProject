@@ -65,7 +65,7 @@ def _tokenize(x, tokenizer):
 def _generate_macro(caption_model, im, prompt):
     text=torch.ones((im.shape[0], 1), device=device, dtype=torch.long)*prompt
     generated = caption_model.generate(
-                im.to(device), 
+                im, 
                 text=text,
                 generation_type='top_p')
     return generated
@@ -86,7 +86,7 @@ def generate_captions(images, caption_model, prompt, tokenizer, device):
         
     generated = _generate_macro(
         caption_model, 
-        images.to(device), 
+        images, 
         prompt_extended)
     
     assert len(generated) == len(images)
@@ -136,6 +136,8 @@ def get_captions()->dict:
                         captions[captioner][dataset][option][ret_path] = caption
     return captions
 
+
+
 if __name__ == '__main__':
     # This script adjusts pre-generated captions to match the path of the images
     if torch.cuda.is_available():
@@ -154,24 +156,23 @@ if __name__ == '__main__':
         pretrained="laion2B-s13B-b90k",
         cache_dir = cache_dir
     )
+    caption_model.to(device)
 
     _, _, data, classes, id2class = get_data('imagenet_a', 32, preprocess, True, 0.0, 0.0)
-    caption_model.to(device)
 
     answers = []
     loop = tqdm.tqdm(enumerate(data), total=len(data))
     for idx, (images, label, path) in loop:
-        # images = images.to(device)
-        outputs = generate_captions(
-            images, 
-            caption_model, 
-            prompt,
-            tokenizer,
-            device
-        )
+        images = images.to(device)
 
-        for o in outputs:
-            continue
-            answer_list.append(o.replace('\n', ' '))
-            if begin == 0:
-                print(o.replace('\n', ' '))
+
+        with torch.no_grad(), torch.cuda.amp.autocast():
+            outputs = generate_captions(
+                images, 
+                caption_model, 
+                prompt,
+                tokenizer,
+                device
+            )
+
+        print(outputs)
