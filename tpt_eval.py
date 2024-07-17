@@ -48,6 +48,7 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
 
     Returns:
         The updated filtered_outputs with caption loss added.
+        The caption prediction from the average of all the logits
     """
     batch_idx, filtered_inputs, filtered_outputs, label = batch
     # Compute captions for each augmentation using coca functions
@@ -58,7 +59,8 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
     # Encode all the captions using the clip encoder (batchfying the captions to save compute)
     caption_tokens = clip.tokenize(captions).to(device)
     caption_features = net.encode_text(caption_tokens).to(device) 
-    caption_logits = (F.normalize(caption_features) @ text_features.T).softmax(-1)
+    caption_logits = net.logit_scale.exp()*(F.normalize(caption_features) @ text_features.T)
+    caption_logits = caption_logits.softmax(-1)
     image_logits = filtered_outputs
 
     # Compute the value of lambda following ice implementation row 193 main_ice.py
@@ -75,9 +77,10 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
         # Sum the image and caption scores to obtain the ICE scores
         ice_scores = image_logits + coef * caption_logits
 
+    caption_prediction = (torch.mean(caption_logits, dim=0)).argmax()
+
     if debug:
-        caption_report(filtered_inputs, label, captions, id2classes, batch_idx)
-    
+        caption_report(filtered_inputs, label, captions, caption_prediction, id2classes, batch_idx)    
 
     return ice_scores
     
@@ -92,7 +95,7 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     outputs, text_features = net(inputs)
     outputs = outputs.softmax(dim=-1)
 
-    filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_threshold=10, return_original=debug)
+    filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_percentile=10, return_original=debug)
     if captioner is not None:
         batch = (batch_idx, filtered_inputs, filtered_outputs, targets)
         filtered_outputs = add_caption_loss(net, captioner, batch, text_features, id2classes, debug=debug)
@@ -103,6 +106,7 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     optimizer.zero_grad()
     loss = avg_entropy(filtered_outputs)
 
+    #! Uncomment this
     if scaler is None:        
         loss.backward()
         optimizer.step()
