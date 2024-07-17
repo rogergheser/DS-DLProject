@@ -35,11 +35,17 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, filtered_inputs, filter
     Adds caption loss to the filtered_outputs using the given captioner.
 
     Args:
-        captioner (C): The captioner object used to generate captions.
+        net (OurCLIP): The network used to generate the text features.
+        captioner (Captioner): The captioner object used to generate captions.
         filtered_inputs: The filtered inputs.
         filtered_outputs: The filtered outputs.
+        text_features: The text features of the labels computed by the model.
+        label: The labels of the filtered inputs.
+        id2class (dict): The mapping from class index to class name.
         prompt (str): The prompt used for generating captions. Default is "a ".
         _lambda (float): The value of lambda used for computing the caption similarity. Default is 0.5.
+        K (int): The number of top classes to consider. Default is 5.
+        debug (bool): Whether to print debug information. Default is False.
 
     Returns:
         The updated filtered_outputs with caption loss added.
