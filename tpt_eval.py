@@ -1,5 +1,6 @@
 import io
-import torch
+import torch, torchvision
+torchvision.disable_beta_transforms_warning()
 import os
 import numpy as np
 import torch.amp
@@ -28,30 +29,27 @@ from copy import deepcopy
 import torch.nn.functional as F
 
 DEBUG = True
-RUN_NAME = "exp6"
+RUN_NAME = "exp7"
 
-def add_caption_loss(net: OurCLIP, captioner: Captioner, filtered_inputs, filtered_outputs, text_features, label, id2class, prompt="a ", _lambda=0.5, K=5, debug=False):
+def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, id2classes, prompt="a ", _lambda=0, K=200, debug=False):
     """
     Adds caption loss to the filtered_outputs using the given captioner.
 
     Args:
         net (OurCLIP): The network used to generate the text features.
         captioner (Captioner): The captioner object used to generate captions.
-        filtered_inputs: The filtered inputs.
-        filtered_outputs: The filtered outputs.
+        batch (tuple): Tuple containing filtered inputs and outputs, batch_idx and label
         text_features: The text features of the labels computed by the model.
-        label: The labels of the filtered inputs.
-        id2class (dict): The mapping from class index to class name.
+        id2classes (dict): The mapping from class index to class name.
         prompt (str): The prompt used for generating captions. Default is "a ".
-        _lambda (float): The value of lambda used for computing the caption similarity. Default is 0.5.
-        K (int): The number of top classes to consider. Default is 5.
+        _lambda (float): The value of lambda used for computing the weighted logit summation
+        K (int): The number of top classes to consider. Default is 200.
         debug (bool): Whether to print debug information. Default is False.
 
     Returns:
         The updated filtered_outputs with caption loss added.
     """
-    
-    # TODO implement this function following the steps
+    batch_idx, filtered_inputs, filtered_outputs, label = batch
     # Compute captions for each augmentation using coca functions
     device = filtered_inputs.device
     with torch.no_grad(), torch.cuda.amp.autocast():
@@ -63,24 +61,22 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, filtered_inputs, filter
     caption_logits = (F.normalize(caption_features) @ text_features.T).softmax(-1)
     image_logits = filtered_outputs
 
-    # Extract topk classes for each image/prompt and for each caption/prompt
-    topk_image_values, topk_image_pred = image_logits.topk(K)
-    topk_caption_values, topk_caption_pred = caption_logits.topk(K)
+    # Compute the value of lambda following ice implementation row 193 main_ice.py
+    assert K == 200, "For k != 200, function has to be implemented"
 
-    # Compute the value of lambda following ice implementation row 193 main_ice.pyù
     if _lambda:
-        ice_scores = (1-_lambda)*topk_image_values + _lambda*topk_caption_values
+        ice_scores = (1-_lambda)*image_logits + _lambda*caption_logits
     else:
         # Lambda computed as a normalization term
-        std_devs = torch.stack((topk_image_values.std(dim=1), topk_caption_values.std(dim=1)), dim=1)
+        std_devs = torch.stack((image_logits.std(dim=1), caption_logits.std(dim=1)), dim=1)
         coef = 0.08 * F.normalize(std_devs, dim=1)
-        coef = coef[:, 1].unsqueeze(1).expand(-1, topk_caption_values.size(1))
+        coef = coef[:, 1].unsqueeze(1).expand(-1, K)
 
         # Sum the image and caption scores to obtain the ICE scores
-        ice_scores = topk_image_values + coef * topk_caption_values
+        ice_scores = image_logits + coef * caption_logits
 
     if debug:
-        caption_report(filtered_inputs, label, captions, id2classes, idx)
+        caption_report(filtered_inputs, label, captions, id2classes, batch_idx)
     
 
     return ice_scores
@@ -98,7 +94,8 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
 
     filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_threshold=10, return_original=debug)
     if captioner is not None:
-        filtered_outputs = add_caption_loss(net, captioner, filtered_inputs, filtered_outputs, text_features, targets, id2classes, debug=debug)
+        batch = (batch_idx, filtered_inputs, filtered_outputs, targets)
+        filtered_outputs = add_caption_loss(net, captioner, batch, text_features, id2classes, debug=debug)
 
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
     prediction_entropy = entropy(avg_predictions).item()
@@ -228,11 +225,12 @@ def main(
     ice_loss=True,
     debug=DEBUG
 ):
+
     print("Using manual seed")
     torch.manual_seed(0)
     # Create a logger for the experiment
+    run_name = RUN_NAME
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
-    RUN_NAME = run_name
 
     _, preprocess = clip.load(backbone, device=device)
     

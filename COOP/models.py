@@ -167,10 +167,9 @@ class OurCLIP(nn.Module):
         
         self.prompt_learner = PromptLearner(clip_model, classnames, n_ctx, ctx_init, class_token_position, csc=csc)
         self.tokenized_prompts = self.prompt_learner.tokenized_prompts
-        # self.tokenize = clip.tokenize()
         self.encode_text = clip_model.encode_text
         self.image_encoder = clip_model.visual
-        self.text_encoder = TextEncoder(clip_model) # this encoder can learn prompts
+        self.text_encoder = TextEncoder(clip_model)
         self.logit_scale = clip_model.logit_scale
 
     def forward(self, image):
