@@ -10,6 +10,7 @@ class Captioner():
             pretrained=version, 
             cache_dir='./.dl-cache'
             )
+        self.caption_model.to(device)
         self.tokenizer = open_clip.get_tokenizer(model_name)
         self.device = device
     
@@ -41,6 +42,7 @@ class Captioner():
             torch.Tensor: The generated captions.
         """
         text=torch.ones((im.shape[0], 1), device=self.device, dtype=torch.long)*prompt
+
         generated = self.caption_model.generate(
                     im, 
                     text=text,

@@ -48,18 +48,18 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, filtered_inputs, filter
     # TODO implement this function following the steps
     # Compute captions for each augmentation using coca functions
     device = filtered_inputs.device
-    # with torch.no_grad(), torch.cuda.amp.autocast():
-    #     captions = captioner.generate_captions(filtered_inputs, prompt)
-    captions = torch.randn(16, 100).to(device)
+    with torch.no_grad(), torch.cuda.amp.autocast():
+        captions = captioner.generate_captions(filtered_inputs, prompt)
+    
     # Encode all the captions using the clip encoder (batchfying the captions to save compute)
-    # TODO: use encode_text from clip to have tokenizing and pos encoding done
-    caption_features = net.text_encoder(captions).to(device) 
+    caption_tokens = clip.tokenize(captions).to(device)
+    caption_features = net.encode_text(caption_tokens).to(device) 
     caption_logits = (F.normalize(caption_features) @ text_features.T).softmax(-1)
     image_logits = filtered_outputs
 
+    # Extract topk classes for each image/prompt and for each caption/prompt
     top_k_values, top_k_predictions = image_logits.topk(K)
     _, top_k_c_values = caption_logits.topk(K)
-    # image_top_scores = 
 
     # Compute the value of lambda following ice implementation row 193 main_ice.py
     top_k_vals, top_k_predictions = text_features.topk(K, dim=1)
