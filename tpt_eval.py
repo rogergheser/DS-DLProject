@@ -23,14 +23,14 @@ from coca_model import Captioner
 from loaders import Augmixer, load_pretrained_coop
 from tqdm import tqdm
 from utils import (entropy, avg_entropy, batch_report, filter_on_entropy,
-                report_predictions, make_histogram, compute_accuracies)
+                report_predictions, make_histogram, compute_accuracies, caption_report)
 from copy import deepcopy
 import torch.nn.functional as F
 
 DEBUG = True
 RUN_NAME = "exp6"
 
-def add_caption_loss(net: OurCLIP, captioner: Captioner, filtered_inputs, filtered_outputs, text_features, prompt="a ", _lambda=0.5, K=5):
+def add_caption_loss(net: OurCLIP, captioner: Captioner, filtered_inputs, filtered_outputs, text_features, label, id2class, prompt="a ", _lambda=0.5, K=5, debug=False):
     """
     Adds caption loss to the filtered_outputs using the given captioner.
 
@@ -58,21 +58,26 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, filtered_inputs, filter
     image_logits = filtered_outputs
 
     # Extract topk classes for each image/prompt and for each caption/prompt
-    top_k_values, top_k_predictions = image_logits.topk(K)
-    _, top_k_c_values = caption_logits.topk(K)
+    topk_image_values, topk_image_pred = image_logits.topk(K)
+    topk_caption_values, topk_caption_pred = caption_logits.topk(K)
 
-    # Compute the value of lambda following ice implementation row 193 main_ice.py
-    top_k_vals, top_k_predictions = text_features.topk(K, dim=1)
-    _, top_k_c_vals = caption_features.topk(K, dim=1)
-    coef = _lambda * F.normalize(
-        torch.stack(
-            top_k_vals.std(1), top_k_c_vals.std(1),
-            dim=1
-        ), dim = 1
-    ).to(device)
+    # Compute the value of lambda following ice implementation row 193 main_ice.pyù
+    if _lambda:
+        ice_scores = (1-_lambda)*topk_image_values + _lambda*topk_caption_values
+    else:
+        # Lambda computed as a normalization term
+        std_devs = torch.stack((topk_image_values.std(dim=1), topk_caption_values.std(dim=1)), dim=1)
+        coef = 0.08 * F.normalize(std_devs, dim=1)
+        coef = coef[:, 1].unsqueeze(1).expand(-1, topk_caption_values.size(1))
+
+        # Sum the image and caption scores to obtain the ICE scores
+        ice_scores = topk_image_values + coef * topk_caption_values
+
+    if debug:
+        caption_report(filtered_inputs, label, captions, id2classes, idx)
     
 
-    return filtered_outputs
+    return ice_scores
     
 
 def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", captioner=None, debug=False):
@@ -87,7 +92,7 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
 
     filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_threshold=10, return_original=debug)
     if captioner is not None:
-        filtered_outputs = add_caption_loss(net, captioner, filtered_inputs, filtered_outputs, text_features)
+        filtered_outputs = add_caption_loss(net, captioner, filtered_inputs, filtered_outputs, text_features, targets, id2classes, debug=debug)
 
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
     prediction_entropy = entropy(avg_predictions).item()
@@ -206,7 +211,7 @@ def main(
     dataset_name="imagenet_a",
     backbone="RN50",
     device="mps",
-    batch_size=16,
+    batch_size=64,
     learning_rate=0.005,
     tta_steps=2,
     run_name="exp6",
@@ -270,7 +275,7 @@ def main(
         version = "laion2B-s13B-b90k"
         captioner = Captioner(model_name=model_name, version=version, device=device)
 
-    print("Beginning testing with TPT:")
+    print(f"Beginning testing with TPT + ice_loss={ice_loss}:")
     test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, scaler, writer, id2classes=id2class, device=device, captioner=captioner, debug=debug)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
     # Closes the logger
