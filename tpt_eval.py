@@ -24,12 +24,12 @@ from coca_model import Captioner
 from loaders import Augmixer, load_pretrained_coop
 from tqdm import tqdm
 from utils import (entropy, avg_entropy, batch_report, filter_on_entropy,
-                report_predictions, make_histogram, compute_accuracies, caption_report)
+                report_predictions, make_histogram, compute_accuracies, caption_report, create_run_info)
 from copy import deepcopy
 import torch.nn.functional as F
 
-DEBUG = True
-RUN_NAME = "exp7"
+DEBUG = False
+RUN_NAME = "exp2"
 
 def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, id2classes, prompt="a ", _lambda=0, K=200, debug=False):
     """
@@ -216,7 +216,7 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
 
 def main(
     dataset_name="imagenet_a",
-    backbone="RN50",
+    backbone="ViT-B/16",
     device="mps",
     batch_size=64,
     learning_rate=0.005,
@@ -286,7 +286,8 @@ def main(
     print(f"Beginning testing with TPT + ice_loss={ice_loss}:")
     test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, scaler, writer, id2classes=id2class, device=device, captioner=captioner, debug=debug)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
-    # Closes the logger
+    
+    create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name)
     
     writer.close()
 

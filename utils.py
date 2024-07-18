@@ -4,6 +4,8 @@ import io
 import random
 import numpy as np
 import regex as re
+import json
+
 from datetime import datetime
 from torchvision import transforms
 from matplotlib import pyplot as plt
@@ -383,3 +385,14 @@ def caption_report(images, label, outputs, caption_prediction, id2class, idx):
 
     plt.savefig(f"caption_reports/batch_{idx}.png")
     plt.close()
+
+def create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name):
+    info = {
+        "dataset": dataset_name,
+        "backbone": backbone,
+        "ice_loss": ice_loss,
+        "top1": test_accuracy,
+        "exp_name": run_name
+    }
+    with open(f"runs/{run_name}/final_result.txt", "w") as file:
+        json.dump(info, file)
