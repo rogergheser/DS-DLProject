@@ -3,6 +3,7 @@ torchvision.disable_beta_transforms_warning()
 import sys
 import numpy as np
 import torch.amp
+import os
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
 import torchvision.transforms as transforms
@@ -28,8 +29,8 @@ from copy import deepcopy
 import torch.nn.functional as F
 import logging
 
-DEBUG = False
-RUN_NAME = "exp2"
+DEBUG = True
+RUN_NAME = "exp3"
 LOG_FREQUENCY = 10
 logger = logging.getLogger(__name__)
 
@@ -79,10 +80,10 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
         # Sum the image and caption scores to obtain the ICE scores
         ice_scores = image_logits + coef * caption_logits
 
-    caption_prediction = (torch.mean(caption_logits, dim=0)).argmax()
+    caption_prediction = torch.mean(caption_logits, dim=0)
 
     if debug:
-        caption_report(filtered_inputs, label, captions, caption_prediction, id2classes, batch_idx)    
+        caption_report(filtered_inputs, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
 
     return ice_scores
     
@@ -309,7 +310,9 @@ if __name__ == "__main__":
         DEVICE = "cpu"
 
     logger.setLevel(logging.DEBUG)
-    file_handler = logging.FileHandler(f"/runs/{RUN_NAME}/log.log")
+    os.makedirs(f"runs/{RUN_NAME}", exist_ok=True)
+    
+    file_handler = logging.FileHandler(f"runs/{RUN_NAME}/log.log")
     stderr_handler = logging.StreamHandler(sys.stderr)
 
     file_handler.setLevel(logging.DEBUG)

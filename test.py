@@ -1,13 +1,9 @@
-from CLIP import clip
 import torch
-import torch.nn.functional as F
 
 
-phrases = ["A photo of a cat", "A picture of dog next to a cat in the woods"]
 
-net, _ = clip.load("RN50", device="cpu")
 
-caption_tokens = clip.tokenize(phrases)
-caption_features = net.encode_text(caption_tokens) 
-
-print(F.normalize(caption_features) @ F.normalize(caption_features).T)
+ice_probabilities, ice_predictions = ice_scores.topk(5)
+cap_probabilities = torch.zeros(ice_predictions.shape)
+for i in range(ice_predictions.shape[0]):
+    cap_probabilities[i,:] = caption_logits[i,ice_predictions[0]]
