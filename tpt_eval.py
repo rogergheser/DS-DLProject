@@ -30,7 +30,7 @@ import torch.nn.functional as F
 import logging
 
 DEBUG = True
-RUN_NAME = "exp3"
+RUN_NAME = "exp5"
 LOG_FREQUENCY = 10
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
     caption_prediction = torch.mean(caption_logits, dim=0)
 
     if debug:
-        caption_report(filtered_inputs, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
+        caption_report(filtered_inputs, image_logits, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
 
     return ice_scores
     
@@ -190,31 +190,18 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
             # Log Values
             writer.add_scalar("Delta_loss/test", loss_diff, batch_idx)
             writer.add_scalar("Delta_entropy/test", entropy_diff, batch_idx)
-            logger.info(f"[LOSS] Batch {batch_idx} - Delta loss: {loss_diff:.5f}, Delta entropy: {entropy_diff:.5f}")
             if batch_idx % LOG_FREQUENCY == 0:
-                if debug:
-                    no_tpt_class_acc, tpt_class_acc = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
-                    histogram = make_histogram(no_tpt_class_acc, tpt_class_acc, 
-                                            'No TPT', 'TPT', save_path=f"runs/{RUN_NAME}/class_accuracy%{batch_idx}e.png")
-                    writer.add_image(f"Class accuracies%{batch_idx}e", histogram, batch_idx, dataformats="HWC")
-            logger.info(f"[ACC] Batch num:{batch_idx} - Top1: {top1/samples * 100:.2f}, Top5: {top5/samples * 100:.2f}")
-            pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100, top5=top5/samples * 100)
+                logger.info(f"[LOSS] Batch {batch_idx} - Delta loss: {loss_diff:.5f}, Delta entropy: {entropy_diff:.5f}")
+                no_tpt_accuracies, accuracies = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
+                histogram = make_histogram(no_tpt_accuracies, accuracies, 
+                                        'No TPT', 'TPT', save_path=f"runs/{RUN_NAME}/class_accuracy%{batch_idx}e.png")
+                writer.add_image(f"Class accuracies%{batch_idx}e", histogram, batch_idx, dataformats="HWC")
+                logger.info(f"[ACC] Batch num:{batch_idx} - Top1: {top1/samples * 100:.2f}, Top5: {top5/samples * 100:.2f}")
+            pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100.00, top5=top5/samples * 100.00)
             pbar.update(1)
 
     except KeyboardInterrupt:
         print("User keyboard interrupt")
-
-    except Exception:
-        for c in id2classes.values():
-            if len(no_tpt_class_acc[c]) == 0 or len(tpt_class_acc[c]) == 0:
-                continue
-            no_tpt_acc = sum(no_tpt_class_acc[c]) / len(no_tpt_class_acc[c])
-            tpt_acc = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
-            writer.add_scalar(f"Class accuracy/{c}", no_tpt_acc, 0)
-            writer.add_scalar(f"Class accuracy/{c}", tpt_acc, 1)
-        # TODO plot histogram
-            pbar.close()
-        raise
 
     # Draw histogram of class accuracies
     no_tpt_accuracies, accuracies = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
@@ -319,7 +306,7 @@ if __name__ == "__main__":
     stderr_handler.setLevel(logging.ERROR)
 
     file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    stderr_formatter = logging.Formatter('%(levelname)s - %(message)s')
+    stderr_formatter = logging.Formatter('\r%(levelname)s - %(message)s')
 
     logger.addHandler(file_handler)
     logger.addHandler(stderr_handler)

@@ -1,2 +1,204 @@
-[LOSS] Batch 0 - Delta loss: 5.27159, Delta entropy: -187.26093
+[LOSS] Batch 0 - Delta loss: 5.28062, Delta entropy: -746.37601
+[ACC] Batch num:0 - Top1: 100.00, Top5: 100.00
+[LOSS] Batch 1 - Delta loss: 10.37541, Delta entropy: -216.45687
+[ACC] Batch num:1 - Top1: 100.00, Top5: 100.00
+[LOSS] Batch 2 - Delta loss: 15.61812, Delta entropy: -167.05303
+[ACC] Batch num:2 - Top1: 100.00, Top5: 100.00
+[LOSS] Batch 3 - Delta loss: 20.88133, Delta entropy: -236.99003
+[ACC] Batch num:3 - Top1: 100.00, Top5: 100.00
+[LOSS] Batch 4 - Delta loss: 21.18936, Delta entropy: -163.73538
+[ACC] Batch num:4 - Top1: 80.00, Top5: 100.00
+[LOSS] Batch 5 - Delta loss: 20.62092, Delta entropy: -27.75111
+[ACC] Batch num:5 - Top1: 66.67, Top5: 100.00
+[LOSS] Batch 6 - Delta loss: 25.83411, Delta entropy: -206.45737
+[ACC] Batch num:6 - Top1: 71.43, Top5: 100.00
+[LOSS] Batch 7 - Delta loss: 31.07084, Delta entropy: -76.78906
+[ACC] Batch num:7 - Top1: 75.00, Top5: 100.00
+[LOSS] Batch 8 - Delta loss: 36.36242, Delta entropy: -56.33420
+[ACC] Batch num:8 - Top1: 77.78, Top5: 100.00
+[LOSS] Batch 9 - Delta loss: 41.46374, Delta entropy: -552.48966
+[ACC] Batch num:9 - Top1: 80.00, Top5: 100.00
+[LOSS] Batch 10 - Delta loss: 46.75708, Delta entropy: -383.12820
+[ACC] Batch num:10 - Top1: 81.82, Top5: 100.00
+[LOSS] Batch 11 - Delta loss: 43.05592, Delta entropy: -377.93753
+[ACC] Batch num:11 - Top1: 75.00, Top5: 91.67
+[LOSS] Batch 12 - Delta loss: 48.34908, Delta entropy: -721.63855
+[ACC] Batch num:12 - Top1: 76.92, Top5: 92.31
+[LOSS] Batch 13 - Delta loss: 53.61422, Delta entropy: -972.48625
+[ACC] Batch num:13 - Top1: 78.57, Top5: 92.86
+[LOSS] Batch 14 - Delta loss: 55.86327, Delta entropy: -820.22933
+[ACC] Batch num:14 - Top1: 73.33, Top5: 93.33
+[LOSS] Batch 15 - Delta loss: 60.81708, Delta entropy: -857.01898
+[ACC] Batch num:15 - Top1: 75.00, Top5: 93.75
+[LOSS] Batch 16 - Delta loss: 61.44219, Delta entropy: -304.00376
+[ACC] Batch num:16 - Top1: 70.59, Top5: 88.24
+[LOSS] Batch 17 - Delta loss: 66.70926, Delta entropy: -111.30009
+[ACC] Batch num:17 - Top1: 72.22, Top5: 88.89
+[LOSS] Batch 18 - Delta loss: 67.01321, Delta entropy: -1003.76188
+[ACC] Batch num:18 - Top1: 68.42, Top5: 89.47
+[LOSS] Batch 19 - Delta loss: 72.29966, Delta entropy: -821.41846
+[ACC] Batch num:19 - Top1: 70.00, Top5: 90.00
+[LOSS] Batch 20 - Delta loss: 77.59074, Delta entropy: -722.68315
+[ACC] Batch num:20 - Top1: 71.43, Top5: 90.48
+[LOSS] Batch 21 - Delta loss: 82.66247, Delta entropy: -216.18245
+[ACC] Batch num:21 - Top1: 72.73, Top5: 90.91
+[LOSS] Batch 22 - Delta loss: 87.78810, Delta entropy: -541.08033
+[ACC] Batch num:22 - Top1: 73.91, Top5: 91.30
+[LOSS] Batch 23 - Delta loss: 93.00708, Delta entropy: -231.16506
+[ACC] Batch num:23 - Top1: 75.00, Top5: 91.67
+[LOSS] Batch 24 - Delta loss: 95.34236, Delta entropy: -375.44107
+[ACC] Batch num:24 - Top1: 72.00, Top5: 92.00
+[LOSS] Batch 25 - Delta loss: 100.43080, Delta entropy: -116.25209
+[ACC] Batch num:25 - Top1: 73.08, Top5: 92.31
+[LOSS] Batch 26 - Delta loss: 105.70726, Delta entropy: -251.01480
+[ACC] Batch num:26 - Top1: 74.07, Top5: 92.59
+[LOSS] Batch 27 - Delta loss: 110.54545, Delta entropy: -33.38897
+[ACC] Batch num:27 - Top1: 75.00, Top5: 92.86
+[LOSS] Batch 28 - Delta loss: 105.24726, Delta entropy: -374.84847
+[ACC] Batch num:28 - Top1: 72.41, Top5: 89.66
+[LOSS] Batch 29 - Delta loss: 110.39053, Delta entropy: -277.27713
+[ACC] Batch num:29 - Top1: 73.33, Top5: 90.00
+[LOSS] Batch 30 - Delta loss: 111.51380, Delta entropy: -407.75075
+[ACC] Batch num:30 - Top1: 70.97, Top5: 87.10
+[LOSS] Batch 31 - Delta loss: 116.79784, Delta entropy: -200.71966
+[ACC] Batch num:31 - Top1: 71.88, Top5: 87.50
+[LOSS] Batch 32 - Delta loss: 114.78546, Delta entropy: -23.60179
+[ACC] Batch num:32 - Top1: 69.70, Top5: 84.85
+[LOSS] Batch 33 - Delta loss: 119.15437, Delta entropy: -4.81490
+[ACC] Batch num:33 - Top1: 70.59, Top5: 85.29
+[LOSS] Batch 34 - Delta loss: 124.31722, Delta entropy: -734.08284
+[ACC] Batch num:34 - Top1: 71.43, Top5: 85.71
+[LOSS] Batch 35 - Delta loss: 122.65460, Delta entropy: -163.37371
+[ACC] Batch num:35 - Top1: 69.44, Top5: 83.33
+[LOSS] Batch 36 - Delta loss: 116.31140, Delta entropy: -449.66623
+[ACC] Batch num:36 - Top1: 67.57, Top5: 81.08
+[LOSS] Batch 37 - Delta loss: 121.60363, Delta entropy: -115.53738
+[ACC] Batch num:37 - Top1: 68.42, Top5: 81.58
+[LOSS] Batch 38 - Delta loss: 124.69050, Delta entropy: -85.83338
+[ACC] Batch num:38 - Top1: 66.67, Top5: 82.05
+[LOSS] Batch 39 - Delta loss: 124.45911, Delta entropy: -644.84306
+[ACC] Batch num:39 - Top1: 65.00, Top5: 82.50
+[LOSS] Batch 40 - Delta loss: 119.62680, Delta entropy: -281.85079
+[ACC] Batch num:40 - Top1: 63.41, Top5: 80.49
+[LOSS] Batch 41 - Delta loss: 124.91180, Delta entropy: -245.77748
+[ACC] Batch num:41 - Top1: 64.29, Top5: 80.95
+[LOSS] Batch 42 - Delta loss: 129.48002, Delta entropy: -267.89778
+[ACC] Batch num:42 - Top1: 65.12, Top5: 81.40
+[LOSS] Batch 43 - Delta loss: 133.44450, Delta entropy: -227.67521
+[ACC] Batch num:43 - Top1: 63.64, Top5: 81.82
+[LOSS] Batch 44 - Delta loss: 132.37811, Delta entropy: -396.03294
+[ACC] Batch num:44 - Top1: 62.22, Top5: 80.00
+[LOSS] Batch 45 - Delta loss: 133.29860, Delta entropy: -120.74923
+[ACC] Batch num:45 - Top1: 60.87, Top5: 80.43
+[LOSS] Batch 46 - Delta loss: 138.48486, Delta entropy: -13.83657
+[ACC] Batch num:46 - Top1: 61.70, Top5: 80.85
+[LOSS] Batch 47 - Delta loss: 143.74487, Delta entropy: -627.92850
+[ACC] Batch num:47 - Top1: 62.50, Top5: 81.25
+[LOSS] Batch 48 - Delta loss: 148.93796, Delta entropy: -455.10134
+[ACC] Batch num:48 - Top1: 63.27, Top5: 81.63
+[LOSS] Batch 49 - Delta loss: 148.92019, Delta entropy: -367.63408
+[ACC] Batch num:49 - Top1: 62.00, Top5: 82.00
+[LOSS] Batch 50 - Delta loss: 153.21442, Delta entropy: -158.37429
+[ACC] Batch num:50 - Top1: 60.78, Top5: 82.35
+[LOSS] Batch 51 - Delta loss: 158.50227, Delta entropy: -44.76555
+[ACC] Batch num:51 - Top1: 61.54, Top5: 82.69
+[LOSS] Batch 52 - Delta loss: 163.16451, Delta entropy: -17.27837
+[ACC] Batch num:52 - Top1: 62.26, Top5: 83.02
+[LOSS] Batch 53 - Delta loss: 162.70498, Delta entropy: -639.62936
+[ACC] Batch num:53 - Top1: 61.11, Top5: 81.48
+[LOSS] Batch 54 - Delta loss: 167.99835, Delta entropy: -13.78308
+[ACC] Batch num:54 - Top1: 61.82, Top5: 81.82
+[LOSS] Batch 55 - Delta loss: 173.29146, Delta entropy: -505.86820
+[ACC] Batch num:55 - Top1: 62.50, Top5: 82.14
+[LOSS] Batch 56 - Delta loss: 176.01993, Delta entropy: -397.46266
+[ACC] Batch num:56 - Top1: 61.40, Top5: 82.46
+[LOSS] Batch 57 - Delta loss: 181.30698, Delta entropy: -13.66971
+[ACC] Batch num:57 - Top1: 62.07, Top5: 82.76
+[LOSS] Batch 58 - Delta loss: 178.98860, Delta entropy: -379.30020
+[ACC] Batch num:58 - Top1: 61.02, Top5: 81.36
+[LOSS] Batch 59 - Delta loss: 184.27205, Delta entropy: -157.08126
+[ACC] Batch num:59 - Top1: 61.67, Top5: 81.67
+[LOSS] Batch 60 - Delta loss: 184.57098, Delta entropy: -129.93478
+[ACC] Batch num:60 - Top1: 60.66, Top5: 80.33
+[LOSS] Batch 61 - Delta loss: 183.71180, Delta entropy: -35.23532
+[ACC] Batch num:61 - Top1: 59.68, Top5: 79.03
+[LOSS] Batch 62 - Delta loss: 187.16060, Delta entropy: -985.44189
+[ACC] Batch num:62 - Top1: 58.73, Top5: 79.37
+[LOSS] Batch 63 - Delta loss: 191.26449, Delta entropy: -293.02944
+[ACC] Batch num:63 - Top1: 59.38, Top5: 79.69
+[LOSS] Batch 64 - Delta loss: 192.32508, Delta entropy: -46.07206
+[ACC] Batch num:64 - Top1: 58.46, Top5: 80.00
+[LOSS] Batch 65 - Delta loss: 197.61850, Delta entropy: -1034.59425
+[ACC] Batch num:65 - Top1: 59.09, Top5: 80.30
+[LOSS] Batch 66 - Delta loss: 202.91143, Delta entropy: -427.10330
+[ACC] Batch num:66 - Top1: 59.70, Top5: 80.60
+[LOSS] Batch 67 - Delta loss: 207.24048, Delta entropy: -3.04408
+[ACC] Batch num:67 - Top1: 58.82, Top5: 80.88
+[LOSS] Batch 68 - Delta loss: 212.52094, Delta entropy: -892.18138
+[ACC] Batch num:68 - Top1: 59.42, Top5: 81.16
+[LOSS] Batch 69 - Delta loss: 217.81242, Delta entropy: -205.64609
+[ACC] Batch num:69 - Top1: 60.00, Top5: 81.43
+[LOSS] Batch 70 - Delta loss: 222.89246, Delta entropy: -283.82392
+[ACC] Batch num:70 - Top1: 60.56, Top5: 81.69
+[LOSS] Batch 71 - Delta loss: 228.04275, Delta entropy: -115.68318
+[ACC] Batch num:71 - Top1: 61.11, Top5: 81.94
+[LOSS] Batch 72 - Delta loss: 233.32885, Delta entropy: -277.08246
+[ACC] Batch num:72 - Top1: 61.64, Top5: 82.19
+[LOSS] Batch 73 - Delta loss: 237.22759, Delta entropy: -518.98336
+[ACC] Batch num:73 - Top1: 60.81, Top5: 82.43
+[LOSS] Batch 74 - Delta loss: 242.51943, Delta entropy: -586.37076
+[ACC] Batch num:74 - Top1: 61.33, Top5: 82.67
+[LOSS] Batch 75 - Delta loss: 245.68409, Delta entropy: -53.54619
+[ACC] Batch num:75 - Top1: 60.53, Top5: 82.89
+[LOSS] Batch 76 - Delta loss: 247.93832, Delta entropy: -11.35402
+[ACC] Batch num:76 - Top1: 59.74, Top5: 83.12
+[LOSS] Batch 77 - Delta loss: 244.64199, Delta entropy: -771.97393
+[ACC] Batch num:77 - Top1: 58.97, Top5: 82.05
+[LOSS] Batch 78 - Delta loss: 249.93405, Delta entropy: -1047.60773
+[ACC] Batch num:78 - Top1: 59.49, Top5: 82.28
+[LOSS] Batch 79 - Delta loss: 250.31498, Delta entropy: -776.88783
+[ACC] Batch num:79 - Top1: 58.75, Top5: 82.50
+[LOSS] Batch 80 - Delta loss: 255.43536, Delta entropy: -85.57099
+[ACC] Batch num:80 - Top1: 59.26, Top5: 82.72
+[LOSS] Batch 81 - Delta loss: 260.69367, Delta entropy: -991.82884
+[ACC] Batch num:81 - Top1: 59.76, Top5: 82.93
+[LOSS] Batch 82 - Delta loss: 260.46814, Delta entropy: -232.76759
+[ACC] Batch num:82 - Top1: 59.04, Top5: 81.93
+[LOSS] Batch 83 - Delta loss: 265.75219, Delta entropy: -506.97105
+[ACC] Batch num:83 - Top1: 59.52, Top5: 82.14
+[LOSS] Batch 84 - Delta loss: 271.04292, Delta entropy: -972.41599
+[ACC] Batch num:84 - Top1: 60.00, Top5: 82.35
+[LOSS] Batch 85 - Delta loss: 274.78716, Delta entropy: -46.62356
+[ACC] Batch num:85 - Top1: 59.30, Top5: 82.56
+[LOSS] Batch 86 - Delta loss: 272.39322, Delta entropy: -978.75170
+[ACC] Batch num:86 - Top1: 58.62, Top5: 81.61
+[LOSS] Batch 87 - Delta loss: 272.46907, Delta entropy: -627.27099
+[ACC] Batch num:87 - Top1: 57.95, Top5: 80.68
+[LOSS] Batch 88 - Delta loss: 277.76059, Delta entropy: -76.36848
+[ACC] Batch num:88 - Top1: 58.43, Top5: 80.90
+[LOSS] Batch 89 - Delta loss: 276.42913, Delta entropy: -54.08785
+[ACC] Batch num:89 - Top1: 57.78, Top5: 80.00
+[LOSS] Batch 90 - Delta loss: 276.77480, Delta entropy: -1055.47013
+[ACC] Batch num:90 - Top1: 57.14, Top5: 79.12
+[LOSS] Batch 91 - Delta loss: 282.04420, Delta entropy: -246.37312
+[ACC] Batch num:91 - Top1: 57.61, Top5: 79.35
+[LOSS] Batch 92 - Delta loss: 278.36039, Delta entropy: -457.97785
+[ACC] Batch num:92 - Top1: 56.99, Top5: 78.49
+[LOSS] Batch 93 - Delta loss: 283.63649, Delta entropy: -494.51187
+[ACC] Batch num:93 - Top1: 57.45, Top5: 78.72
+[LOSS] Batch 94 - Delta loss: 288.92903, Delta entropy: -517.19480
+[ACC] Batch num:94 - Top1: 57.89, Top5: 78.95
+[LOSS] Batch 95 - Delta loss: 283.51212, Delta entropy: -747.81716
+[ACC] Batch num:95 - Top1: 57.29, Top5: 78.12
+[LOSS] Batch 96 - Delta loss: 288.77498, Delta entropy: -102.65475
+[ACC] Batch num:96 - Top1: 57.73, Top5: 78.35
+[LOSS] Batch 97 - Delta loss: 290.90565, Delta entropy: -300.25764
+[ACC] Batch num:97 - Top1: 57.14, Top5: 77.55
+[LOSS] Batch 98 - Delta loss: 296.17150, Delta entropy: -129.32793
+[ACC] Batch num:98 - Top1: 57.58, Top5: 77.78
+[LOSS] Batch 99 - Delta loss: 295.59439, Delta entropy: -14.48116
+[ACC] Batch num:99 - Top1: 57.00, Top5: 77.00
+[LOSS] Batch 100 - Delta loss: 295.78359, Delta entropy: -45.40229
+[ACC] Batch num:100 - Top1: 56.44, Top5: 77.23
+[LOSS] Batch 0 - Delta loss: 5.26435, Delta entropy: -187.08977
 [ACC] Batch num:0 - Top1: 100.00, Top5: 100.00
