@@ -73,13 +73,18 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
         ice_scores = (1-_lambda)*image_logits + _lambda*caption_logits
     else:
         # Lambda computed as a normalization term
-        std_devs = torch.stack((image_logits.std(dim=1), caption_logits.std(dim=1)), dim=1)
-        coef = 0.08 * F.normalize(std_devs, dim=1)
-        coef = coef[:, 1].unsqueeze(1).expand(-1, K)
-
+        # std_devs = torch.stack((image_logits.std(dim=1), caption_logits.std(dim=1)), dim=1)
+        # coef = 0.08 * F.normalize(std_devs, dim=1)
+        # coef = coef[:, 1].unsqueeze(1).expand(-1, K)
         # Sum the image and caption scores to obtain the ICE scores
-        ice_scores = image_logits + coef * caption_logits
-
+        # ice_scores = image_logits + coef * caption_logits
+        ice_scores = torch.zeros_like(image_logits)
+        for batch in range(image_logits.shape[0]):
+            A = 1/(1 + entropy(image_logits[batch]).item())
+            B = 1/(1 + entropy(caption_logits[batch]).item())
+            C = A + B
+            ice_scores[batch] = (A/C * image_logits[batch] + B/C * caption_logits[batch]).softmax(-1)
+            ice_scores[batch] = (2 * image_logits[batch] * caption_logits[batch]).div(image_logits[batch] + caption_logits[batch])
     caption_prediction = torch.mean(caption_logits, dim=0)
 
     if debug:

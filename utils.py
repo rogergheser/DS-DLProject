@@ -397,6 +397,7 @@ def caption_report(images, image_logits, caption_logits, ice_scores, label, outp
 
     for i, image in enumerate(images[:9]):
         plt.subplot(6,4, 2*i+1)
+
         plt.title(id2class[label[i]]) if isinstance(label, list) else id2class[label]
         plt.xlabel(outputs[i])
         plt.imshow(image)
@@ -411,7 +412,10 @@ def caption_report(images, image_logits, caption_logits, ice_scores, label, outp
         plt.gca().invert_yaxis()
         plt.gca().set_axisbelow(True)
         plt.yticks(y, [id2class[pred] for pred in ice_predictions[i].numpy()])
+        plt.xlim(0,1)
         plt.xlabel("probability")
+
+    plt.subplots_adjust(hspace=0.5)  # Increase vertical space between subplots
 
     plt.savefig(f"caption_reports/batch_{idx}.png")
     plt.close()
