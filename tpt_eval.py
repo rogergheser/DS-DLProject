@@ -1,7 +1,6 @@
-import io
 import torch, torchvision
 torchvision.disable_beta_transforms_warning()
-import os
+import sys
 import numpy as np
 import torch.amp
 from torch.utils.tensorboard import SummaryWriter
@@ -27,9 +26,12 @@ from utils import (entropy, avg_entropy, batch_report, filter_on_entropy,
                 report_predictions, make_histogram, compute_accuracies, caption_report, create_run_info)
 from copy import deepcopy
 import torch.nn.functional as F
+import logging
 
 DEBUG = False
 RUN_NAME = "exp2"
+LOG_FREQUENCY = 10
+logger = logging.getLogger(__name__)
 
 def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, id2classes, prompt="a ", _lambda=0, K=200, debug=False):
     """
@@ -106,7 +108,6 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     optimizer.zero_grad()
     loss = avg_entropy(filtered_outputs)
 
-    #! Uncomment this
     if scaler is None:        
         loss.backward()
         optimizer.step()
@@ -188,7 +189,14 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
             # Log Values
             writer.add_scalar("Delta_loss/test", loss_diff, batch_idx)
             writer.add_scalar("Delta_entropy/test", entropy_diff, batch_idx)
-
+            logger.info(f"[LOSS] Batch {batch_idx} - Delta loss: {loss_diff:.5f}, Delta entropy: {entropy_diff:.5f}")
+            if batch_idx % LOG_FREQUENCY == 0:
+                if debug:
+                    no_tpt_class_acc, tpt_class_acc = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
+                    histogram = make_histogram(no_tpt_class_acc, tpt_class_acc, 
+                                            'No TPT', 'TPT', save_path=f"runs/{RUN_NAME}/class_accuracy%{batch_idx}e.png")
+                    writer.add_image(f"Class accuracies%{batch_idx}e", histogram, batch_idx, dataformats="HWC")
+            logger.info(f"[ACC] Batch num:{batch_idx} - Top1: {top1/samples * 100:.2f}, Top5: {top5/samples * 100:.2f}")
             pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100, top5=top5/samples * 100)
             pbar.update(1)
 
@@ -299,5 +307,18 @@ if __name__ == "__main__":
         DEVICE = "mps"
     else:
         DEVICE = "cpu"
+
+    logger.setLevel(logging.DEBUG)
+    file_handler = logging.FileHandler(f"/runs/{RUN_NAME}/log.log")
+    stderr_handler = logging.StreamHandler(sys.stderr)
+
+    file_handler.setLevel(logging.DEBUG)
+    stderr_handler.setLevel(logging.ERROR)
+
+    file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    stderr_formatter = logging.Formatter('%(levelname)s - %(message)s')
+
+    logger.addHandler(file_handler)
+    logger.addHandler(stderr_handler)
 
     main(device=DEVICE)
