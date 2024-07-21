@@ -23,7 +23,7 @@ from COOP.dataloader import get_data
 from coca_model import Captioner
 from loaders import Augmixer, load_pretrained_coop
 from tqdm import tqdm
-from utils import (entropy, avg_entropy, batch_report, filter_on_entropy,
+from utils import (entropy, avg_entropy, batch_report, filter_on_entropy, AverageMeter,
                 report_predictions, make_histogram, compute_accuracies, caption_report, create_run_info)
 from copy import deepcopy
 import torch.nn.functional as F
@@ -31,8 +31,8 @@ import logging
 
 DEBUG = False
 HARMONIC_MEAN=True
-RUN_NAME = "exp5"
-LOG_FREQUENCY = 40
+RUN_NAME = "exp6"
+LOG_FREQUENCY = 10
 logger = logging.getLogger(__name__)
 
 
@@ -138,11 +138,9 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     return loss.item(), prediction, prediction_entropy
 
 def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, id2classes, device="cuda", captioner=None, debug=False):
-    samples = 0.0
-    cumulative_loss = 0.0
-    cumulative_accuracy = 0.0
-    top1 = 0
-    top5 = 0
+    cumulative_loss = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
 
     no_tpt_class_acc = {c: [] for c in id2classes.values()}
     tpt_class_acc = {c: [] for c in id2classes.values()}
@@ -170,8 +168,7 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
                 prediction = outputs.argmax(dim=1)
                 prediction_entropy = entropy(prediction).item()
 
-                cumulative_loss += loss.item()
-                samples += 1
+                cumulative_loss.update(loss.item())
 
             # Update accuracies
             # ! this is not correct, we are not computing the accuracy 
@@ -184,34 +181,37 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
 
             values, predictions = outputs.topk(5)
             if prediction == targets:
-                top1 += 1
+                top1.update(1)
                 tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
             else:
+                top1.update(0)
                 tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(0)
-                pass
+
             if targets.item() in predictions:
-                top5 += (targets.view(-1, 1) == predictions).sum().item()
+                top5.update(1)
+            else:
+                top5.update(0)
 
             if debug:
                 top5_str = [id2classes[pred] for pred in predictions[0].tolist()]
                 target_str = id2classes[targets.item()]
                 report_predictions(batch_idx, top5_str, values, target_str)
 
-            loss_diff +=  _loss - loss.item() # comparison of loss with and without TPT
+            loss_diff =  _loss - loss.item() # comparison of loss with and without TPT
             entropy_diff = prediction_entropy - no_tpt_prediction_entropy # comparison of entropy with and without TPT
             # Log Values
             writer.add_scalar("Delta_loss/test", loss_diff, batch_idx)
             writer.add_scalar("Delta_entropy/test", entropy_diff, batch_idx)
-            writer.add_scalar("Top-1", top1/samples*100.00, batch_idx)
-            writer.add_scalar("Top-5", top5/samples*100.00, batch_idx)
-            if batch_idx % LOG_FREQUENCY == 0:
+            writer.add_scalar("Top-1", top1.get_avg()*100.00, batch_idx)
+            writer.add_scalar("Top-5", top5.get_avg()*100.00, batch_idx)
+            if batch_idx % LOG_FREQUENCY == 0 :#and batch_idx > 10:
                 logger.info(f"[LOSS] Batch {batch_idx} - Delta loss: {loss_diff:.5f}, Delta entropy: {entropy_diff:.5f}")
                 no_tpt_accuracies, accuracies = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
                 histogram = make_histogram(no_tpt_accuracies, accuracies, 
                                         'No TPT', 'TPT', save_path=f"runs/{RUN_NAME}/class_accuracy%{batch_idx}e.png")
                 writer.add_image(f"Class accuracies%{batch_idx}e", histogram, batch_idx, dataformats="HWC")
-                logger.info(f"[ACC] Batch num:{batch_idx} - Top1: {top1/samples * 100:.2f}, Top5: {top5/samples * 100:.2f}")
-            pbar.set_postfix(test_loss=loss.item(), top1=top1/samples * 100.00, top5=top5/samples * 100.00)
+                logger.info(f"[ACC] Batch num:{batch_idx} - Top1: {top1.get_avg() * 100:.2f}, Top5: {top5.get_avg() * 100:.2f}")
+            pbar.set_postfix(test_loss=loss.item(), top1=top1.get_avg() * 100.00, top5=top5.get_avg() * 100.00)
             pbar.update(1)
 
     except KeyboardInterrupt:
@@ -220,9 +220,10 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
     # Draw histogram of class accuracies
     no_tpt_accuracies, accuracies = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
     image = make_histogram(no_tpt_accuracies, accuracies, 'No TPT','TPT', save_path=f"runs/{RUN_NAME}/accuracy_by_class.png")
+    image = make_histogram(no_tpt_accuracies, accuracies, 'No TPT','TPT', save_path=f"runs/{RUN_NAME}/accuracy_by_worst_class.png", worst_case=True)
     writer.add_image("Class accuracies", image, 0, dataformats="HWC")
 
-    return cumulative_loss / samples, cumulative_accuracy / samples * 100
+    return cumulative_loss.get_avg() , top1.get_avg() * 100
 
 def main(
     dataset_name="imagenet_a",
@@ -236,7 +237,7 @@ def main(
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
-    ice_loss=True,
+    ice_loss=False,
     harmonic_mean=HARMONIC_MEAN,
     debug=DEBUG
 ):

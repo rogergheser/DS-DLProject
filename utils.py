@@ -69,6 +69,27 @@ class AugMix(torch.nn.Module):
         
         mixed = (1 - m) * img + m * mix
         return mixed
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.val = 0
+        self.sum = 0
+        self.count = 0
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+
+    def get_avg(self):
+        return self.sum / self.count
     
 def generate_augmented_batch(original_tensor, num_images, augmix_module):
     batch = [original_tensor]  # Start with the original image
@@ -254,7 +275,7 @@ def batch_report(inputs:torch.Tensor, outputs: torch.Tensor, final_prediction:to
     plt.savefig(f"batch_reports/Batch{batch_n}.png")
     plt.close()
 
-def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label: str, save_path:str=None)-> Image:
+def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label: str, save_path:str=None, worst_case=False)-> Image:
     """
     Creates histogram for class accuracies and log it with tensorboard to save the plot
     :param: no_tpt_acc: dict: class accuracies before TPT
@@ -269,9 +290,21 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
     x = np.arange(len(classes))
     width = 0.35
 
+    if worst_case:
+        worse_no_tpt_acc, worse_tpt_acc = {}, {}
+        for (key, val) in  tpt_acc.items():
+            if tpt_acc[key] < no_tpt_acc[key]:
+                worse_no_tpt_acc[key] = no_tpt_acc[key]
+                worse_tpt_acc[key] = tpt_acc[key]
+
+        no_tpt_acc = worse_no_tpt_acc
+        tpt_acc = worse_tpt_acc
+            
+
     fig, ax = plt.subplots(dpi=500)
     ax.bar(x - width/2, no_tpt_acc.values(), width, color='b', label=no_tpt_label)
     ax.bar(x + width/2, tpt_acc.values(), width, color='r', label=tpt_label)
+    plt.legend()
     
     ax.set_ylabel('Accuracy')
     ax.set_title('Class accuracies')
@@ -427,14 +460,14 @@ def caption_report(images, image_logits, caption_logits, ice_scores, label, outp
     plt.savefig(f"caption_reports/batch_{idx}.png")
     plt.close()
 
-def create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name):
+def create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, harmonic_mean):
     info = {
         "dataset": dataset_name,
         "backbone": backbone,
         "ice_loss": ice_loss,
         "top1": test_accuracy,
         "exp_name": run_name,
-        "ice average": 'harmonic mean' if HARMONIC_MEAN else 'weighted average'
+        "ice average": 'harmonic mean' if harmonic_mean else 'weighted average'
     }
     with open(f"runs/{run_name}/final_result.txt", "w") as file:
         json.dump(info, file)
