@@ -88,8 +88,8 @@ def _generate_macro(caption_model, im, prompt):
     text=torch.ones((im.shape[0], 1), device=device, dtype=torch.long)*prompt
     generated = caption_model.generate(
                 im, 
-                text=text,
-                generation_type='top_p')
+                text=text,)
+                # generation_type='top_p')
     return generated
 
 def get_test_transform():

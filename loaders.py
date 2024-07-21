@@ -8,7 +8,7 @@ import random
 import os
 
 from torchvision.transforms import v2
-from augmix import augmentations, post_augmentations
+from augmix import augmentations, post_augmentations, augmentations_basic
 from PIL import Image
 
 
@@ -99,7 +99,8 @@ def _augmix(image, preprocess, aug_list, severity=1):
     for i in range(3):
         x_aug = x_orig.copy()
         for _ in range(np.random.randint(1, 4)):
-            x_aug = np.random.choice(aug_list)(x_aug, severity)
+            x_aug = np.random.choice(aug_list)(x_aug)
+            # x_aug = np.random.choice(aug_list)(x_aug, severity)
         mix += w[i] * preprocess(x_aug)
     mix = m * x_processed + (1 - m) * mix
     return mix
@@ -109,7 +110,7 @@ class Augmixer(object):
                     severity=1):
         self.preprocess = preprocess
         self.n_views = n_views-1
-        self.aug_list = augmentations
+        self.aug_list = augmentations_basic
         self.post_auglist = post_augmentations
         self.severity = severity
         self.augmix = augmix

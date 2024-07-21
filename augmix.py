@@ -90,7 +90,7 @@ post_augmentations = [
 ]
 
 augmentations_basic = [
-    translate_x, translate_y, random_crop, random_horizontal_flip, random_resize_crop, random_vertical_flip
+    random_crop, random_horizontal_flip, random_vertical_flip
 ]
 
 augmentations_all = [
