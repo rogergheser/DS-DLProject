@@ -29,10 +29,12 @@ from copy import deepcopy
 import torch.nn.functional as F
 import logging
 
-DEBUG = True
+DEBUG = False
+HARMONIC_MEAN=True
 RUN_NAME = "exp5"
-LOG_FREQUENCY = 10
+LOG_FREQUENCY = 40
 logger = logging.getLogger(__name__)
+
 
 def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, id2classes, prompt="a ", _lambda=0, K=200, debug=False):
     """
@@ -61,8 +63,11 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
     
     # Encode all the captions using the clip encoder (batchfying the captions to save compute)
     caption_tokens = clip.tokenize(captions).to(device)
-    caption_features = net.encode_text(caption_tokens).to(device) 
+    caption_features = net.encode_text(caption_tokens).to(device)
+
+    
     caption_logits = net.logit_scale.exp()*(F.normalize(caption_features) @ text_features.T)
+
     caption_logits = caption_logits.softmax(-1)
     image_logits = filtered_outputs
 
@@ -83,10 +88,12 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
             A = 1/(1 + entropy(image_logits[batch]).item())
             B = 1/(1 + entropy(caption_logits[batch]).item())
             C = A + B
-            ice_scores[batch] = (A/C * image_logits[batch] + B/C * caption_logits[batch]).softmax(-1)
-            ice_scores[batch] = (2 * image_logits[batch] * caption_logits[batch]).div(image_logits[batch] + caption_logits[batch])
-    caption_prediction = torch.mean(caption_logits, dim=0)
+            if HARMONIC_MEAN:
+                ice_scores[batch] = (2 * image_logits[batch] * caption_logits[batch]).div(image_logits[batch] + caption_logits[batch])
+            else:
+                ice_scores[batch] = (A/C * image_logits[batch] + B/C * caption_logits[batch])
 
+    caption_prediction = torch.mean(caption_logits, dim=0)
     if debug:
         caption_report(filtered_inputs, image_logits, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
 
@@ -195,6 +202,8 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
             # Log Values
             writer.add_scalar("Delta_loss/test", loss_diff, batch_idx)
             writer.add_scalar("Delta_entropy/test", entropy_diff, batch_idx)
+            writer.add_scalar("Top-1", top1/samples*100.00, batch_idx)
+            writer.add_scalar("Top-5", top5/samples*100.00, batch_idx)
             if batch_idx % LOG_FREQUENCY == 0:
                 logger.info(f"[LOSS] Batch {batch_idx} - Delta loss: {loss_diff:.5f}, Delta entropy: {entropy_diff:.5f}")
                 no_tpt_accuracies, accuracies = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
@@ -222,17 +231,22 @@ def main(
     batch_size=64,
     learning_rate=0.005,
     tta_steps=2,
-    run_name="exp6",
+    run_name=RUN_NAME,
     n_ctx=4,
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
     ice_loss=True,
+    harmonic_mean=HARMONIC_MEAN,
     debug=DEBUG
 ):
+    HARMONIC_MEAN = harmonic_mean
+    DEBUG = debug
+    RUN_NAME = run_name
 
-    print("Using manual seed")
-    torch.manual_seed(0)
+    seed = 0
+    print("Using manual seed {}".format(seed))
+    torch.manual_seed(seed)
     # Create a logger for the experiment
     run_name = RUN_NAME
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
@@ -288,7 +302,7 @@ def main(
     test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, scaler, writer, id2classes=id2class, device=device, captioner=captioner, debug=debug)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
     
-    create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name)
+    create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, harmonic_mean)
     
     writer.close()
 
@@ -304,7 +318,11 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     os.makedirs(f"runs/{RUN_NAME}", exist_ok=True)
     
-    file_handler = logging.FileHandler(f"runs/{RUN_NAME}/log.log")
+    log_path = f"runs/{RUN_NAME}/log.log"
+    if os.path.isfile(log_path):
+        os.remove(log_path)
+
+    file_handler = logging.FileHandler(log_path)
     stderr_handler = logging.StreamHandler(sys.stderr)
 
     file_handler.setLevel(logging.DEBUG)

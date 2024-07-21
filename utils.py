@@ -364,18 +364,24 @@ def caption_report(images, image_logits, caption_logits, ice_scores, label, outp
     import matplotlib.pyplot as plt
 
     ice_probabilities, ice_predictions = ice_scores.topk(5)
-    cap_probabilities = torch.zeros(ice_predictions.shape)
-    for i in range(ice_predictions.shape[0]):
-        cap_probabilities[i,:] = caption_logits[i,ice_predictions[0]]
-
-    img_probabilities = torch.zeros(ice_predictions.shape)
-    for i in range(ice_predictions.shape[0]):
-        img_probabilities[i,:] = image_logits[i,ice_predictions[0]]
+    cap_probabilities = caption_logits.gather(1, ice_predictions)
+    img_probabilities = image_logits.gather(1, ice_predictions)
 
     ice_probabilities = ice_probabilities.cpu().detach()
     ice_predictions = ice_predictions.cpu().detach()
     cap_probabilities = cap_probabilities.cpu().detach()
-    img_probabilities = cap_probabilities.cpu().detach()
+    img_probabilities = img_probabilities.cpu().detach()
+    
+    # Debugging purposes
+    # with open(f"caption_reports/debug_{idx}.txt", 'w') as f:
+    #     f.write('\nice_predictions:\n')
+    #     np.savetxt(f, ice_predictions.numpy(), fmt='%d')
+    #     f.write('ice_probabilities:\n')
+    #     np.savetxt(f, ice_probabilities.numpy(), fmt='%f')
+    #     f.write('\ncap_probabilities:\n')
+    #     np.savetxt(f, cap_probabilities.numpy(), fmt='%f')
+    #     f.write('\nimg_probabilities:\n')
+    #     np.savetxt(f, img_probabilities.numpy(), fmt='%f')
 
     clip_mean = [0.48145466, 0.4578275, 0.40821073]
     clip_std = [0.26862954, 0.26130258, 0.27577711]
@@ -406,15 +412,16 @@ def caption_report(images, image_logits, caption_logits, ice_scores, label, outp
         width=0.35
         y = np.arange(ice_probabilities.shape[-1])
         plt.grid()
-        plt.barh(y-1/2*width, ice_probabilities[i], width, color="green")
-        plt.barh(y, cap_probabilities[i], width, color="red")
-        plt.barh(y+1/2*width, img_probabilities[i], width, color="blue")
+        plt.barh(y-width, ice_probabilities[i], width*2/3, color="green", label='ICE')
+        plt.barh(y, cap_probabilities[i], width*2/3, color="red", label='CAP')
+        plt.barh(y+width, img_probabilities[i], width*2/3, color="blue", label='IMG')
         plt.gca().invert_yaxis()
         plt.gca().set_axisbelow(True)
         plt.yticks(y, [id2class[pred] for pred in ice_predictions[i].numpy()])
         plt.xlim(0,1)
         plt.xlabel("probability")
-
+    
+    plt.legend()
     plt.subplots_adjust(hspace=0.5)  # Increase vertical space between subplots
 
     plt.savefig(f"caption_reports/batch_{idx}.png")
@@ -426,7 +433,8 @@ def create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name):
         "backbone": backbone,
         "ice_loss": ice_loss,
         "top1": test_accuracy,
-        "exp_name": run_name
+        "exp_name": run_name,
+        "ice average": 'harmonic mean' if HARMONIC_MEAN else 'weighted average'
     }
     with open(f"runs/{run_name}/final_result.txt", "w") as file:
         json.dump(info, file)
