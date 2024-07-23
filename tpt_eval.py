@@ -30,11 +30,30 @@ import torch.nn.functional as F
 import logging
 
 DEBUG = False
-HARMONIC_MEAN=True
-RUN_NAME = "exp6"
-LOG_FREQUENCY = 10
+HARMONIC_MEAN = False
+STD_DEV = True
+RUN_NAME = "stddev--CoCa"
+LOG_FREQUENCY = 5
 logger = logging.getLogger(__name__)
 
+
+def get_caption_logits(captioner:Captioner, captions, id2class):
+    from open_clip import factory
+    device = DEVICE
+    classes = list(id2class.values())
+    tokenizer = factory.get_tokenizer("coca_ViT-L-14")
+    with torch.cuda.amp.autocast(), torch.no_grad():
+        class_tokens = tokenizer([f"A photo of {cls}" for cls in classes])
+        class_features = captioner.caption_model.encode_text(class_tokens.to(device), normalize=False)
+
+        caption_tokens = tokenizer(captions)
+        caption_features = captioner.caption_model.encode_text(caption_tokens.to(device))
+
+        scale = captioner.caption_model.logit_scale.exp()
+        caption_logits = F.normalize(caption_features) @ F.normalize(class_features).T
+
+
+    return (caption_logits * scale).softmax(-1)
 
 def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, id2classes, prompt="a ", _lambda=0, K=200, debug=False):
     """
@@ -62,13 +81,13 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
         captions = captioner.generate_captions(filtered_inputs, prompt)
     
     # Encode all the captions using the clip encoder (batchfying the captions to save compute)
-    caption_tokens = clip.tokenize(captions).to(device)
-    caption_features = net.encode_text(caption_tokens).to(device)
+    # caption_tokens = clip.tokenize(captions).to(device)
+    # caption_features = net.encode_text(caption_tokens).to(device)
 
     
-    caption_logits = net.logit_scale.exp()*(F.normalize(caption_features) @ text_features.T)
-
-    caption_logits = caption_logits.softmax(-1)
+    # caption_logits = net.logit_scale.exp()*(F.normalize(caption_features) @ text_features.T)
+    # caption_logits = caption_logits.softmax(-1)
+    caption_logits = get_caption_logits(captioner, captions, id2classes)
     image_logits = filtered_outputs
 
     # Compute the value of lambda following ice implementation row 193 main_ice.py
@@ -78,19 +97,20 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
         ice_scores = (1-_lambda)*image_logits + _lambda*caption_logits
     else:
         # Lambda computed as a normalization term
-        # std_devs = torch.stack((image_logits.std(dim=1), caption_logits.std(dim=1)), dim=1)
-        # coef = 0.08 * F.normalize(std_devs, dim=1)
-        # coef = coef[:, 1].unsqueeze(1).expand(-1, K)
-        # Sum the image and caption scores to obtain the ICE scores
-        # ice_scores = image_logits + coef * caption_logits
         ice_scores = torch.zeros_like(image_logits)
         for batch in range(image_logits.shape[0]):
-            A = 1/(1 + entropy(image_logits[batch]).item())
-            B = 1/(1 + entropy(caption_logits[batch]).item())
-            C = A + B
             if HARMONIC_MEAN:
                 ice_scores[batch] = (2 * image_logits[batch] * caption_logits[batch]).div(image_logits[batch] + caption_logits[batch])
+            elif STD_DEV:
+                std_devs = torch.stack((image_logits.std(dim=1), caption_logits.std(dim=1)), dim=1)
+                coef = 0.08 * F.normalize(std_devs, dim=1)
+                coef = coef[:, 1].unsqueeze(1).expand(-1, K)
+                # Sum the image and caption scores to obtain the ICE scores
+                ice_scores = image_logits + coef * caption_logits
             else:
+                A = 1/(1 + entropy(image_logits[batch]).item())
+                B = 1/(1 + entropy(caption_logits[batch]).item())
+                C = A + B
                 ice_scores[batch] = (A/C * image_logits[batch] + B/C * caption_logits[batch])
 
     caption_prediction = torch.mean(caption_logits, dim=0)
@@ -98,7 +118,7 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
         caption_report(filtered_inputs, image_logits, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
 
     return ice_scores
-    
+
 
 def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", captioner=None, debug=False):
     batch_idx, inputs, targets = batch
@@ -129,7 +149,6 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
-        
     # show batch
     if debug:
         batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
@@ -231,13 +250,12 @@ def main(
     device="mps",
     batch_size=64,
     learning_rate=0.005,
-    tta_steps=2,
     run_name=RUN_NAME,
     n_ctx=4,
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
-    ice_loss=False,
+    ice_loss=True,
     harmonic_mean=HARMONIC_MEAN,
     debug=DEBUG
 ):

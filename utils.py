@@ -22,7 +22,7 @@ def entropy(p):
     """
     Given a tensor p representing a probability distribution, returns the entropy of the distribution
     """
-    return -torch.sum(p * torch.log(p + 1e-8))
+    return -torch.sum(p * torch.log(p + 1e-7))
 
 def get_index(path):
     """
@@ -166,35 +166,6 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
     plt.savefig(f"batch_reports/Batch{batch_n}.png")
     plt.close()
 
-def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label: str, save_path:str=None)-> Image:
-    """
-    Creates histogram for class accuracies and log it with tensorboard and saves the plot
-    """
-    classes = list(no_tpt_acc.keys())
-    x = np.arange(len(classes))
-    width = 0.35
-
-    fig, ax = plt.subplots(dpi=500)
-    ax.bar(x - width/2, no_tpt_acc.values(), width, color='b', label=no_tpt_label)
-    ax.bar(x + width/2, tpt_acc.values(), width, color='r', label=tpt_label)
-    
-    ax.set_ylabel('Accuracy')
-    ax.set_title('Class accuracies')
-    ax.set_xticks(x)
-    ax.set_xticklabels(classes, rotation=-90, fontsize=2)
-
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    buf.seek(0)
-
-    image = Image.open(buf)
-    image = np.array(image)
-
-    if save_path:
-        plt.savefig(save_path)
-
-    return image
-
 
 def batch_report(inputs:torch.Tensor, outputs: torch.Tensor, final_prediction:torch.Tensor,
                  target:torch.Tensor, id2classes: dict, batch_n:int):
@@ -286,9 +257,15 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
 
     :return: PIL.Image: image of the plot
     """
+
+    no_tpt_acc = {k: v for k, v in no_tpt_acc.items() if v != -1}
+    tpt_acc = {k: v for k, v in tpt_acc.items() if v != -1}
+
     classes = list(no_tpt_acc.keys())
     x = np.arange(len(classes))
     width = 0.35
+
+    
 
     if worst_case:
         worse_no_tpt_acc, worse_tpt_acc = {}, {}
@@ -309,7 +286,7 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
     ax.set_ylabel('Accuracy')
     ax.set_title('Class accuracies')
     ax.set_xticks(x)
-    ax.set_xticklabels(classes, rotation=-90, fontsize=2)
+    ax.set_xticklabels(classes, rotation=-90, fontsize=7.1-(len(classes)/200*7))
 
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
@@ -355,8 +332,8 @@ def compute_accuracies(id2classes:dict, no_tpt_class_acc:dict, tpt_class_acc:dic
 
     for c in id2classes.values():
         if len(no_tpt_class_acc[c]) == 0 or len(tpt_class_acc[c]) == 0:
-            no_tpt_accuracies[c] = 0
-            accuracies[c] = 0
+            no_tpt_accuracies[c] = -1
+            accuracies[c] = -1
             continue
         no_tpt_accuracies[c] = sum(no_tpt_class_acc[c]) / len(no_tpt_class_acc[c])
         accuracies[c] = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
