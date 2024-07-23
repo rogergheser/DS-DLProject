@@ -30,10 +30,10 @@ import torch.nn.functional as F
 import logging
 import pickle
 
-DEBUG = True
-ENSAMBLE_METHOD = "entropy"
+DEBUG = False
+ENSAMBLE_METHOD = "std_dev"
 RUN_NAME = "stddev--CoCa"
-LOG_FREQUENCY = 50
+LOG_FREQUENCY = 100
 logger = logging.getLogger(__name__)
 
 
@@ -120,7 +120,7 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
     if debug:
         caption_report(filtered_inputs, image_logits, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
 
-    if batch_idx % LOG_FREQUENCY:
+    if batch_idx % LOG_FREQUENCY == 0:
         caption_report(filtered_inputs, image_logits, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
     return ice_scores
 
@@ -138,7 +138,7 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_percentile=10, return_original=debug)
     if captioner is not None:
         batch = (batch_idx, filtered_inputs, filtered_outputs, targets)
-        filtered_outputs = add_caption_loss(net, captioner, batch, text_features, id2classes, debug=debug)
+        filtered_outputs = add_caption_loss(net, captioner, batch, text_features, id2classes, debug=debug, ensamble_method=ENSAMBLE_METHOD)
 
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
     prediction_entropy = entropy(avg_predictions).item()
@@ -157,7 +157,7 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     # show batch
     if debug:
         batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
-    if batch_idx % LOG_FREQUENCY:
+    if batch_idx % LOG_FREQUENCY == 0:
         batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
         
     prediction = avg_predictions.argmax(dim=1)
@@ -274,7 +274,7 @@ def main(
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
-    ice_loss=False,
+    ice_loss=True,
     harmonic_mean=HARMONIC_MEAN,
     debug=DEBUG
 ):
