@@ -275,10 +275,8 @@ def main(
     class_token_position="end",
     csc=False,
     ice_loss=True,
-    harmonic_mean=HARMONIC_MEAN,
     debug=DEBUG
 ):
-    HARMONIC_MEAN = harmonic_mean
     DEBUG = debug
     RUN_NAME = run_name
 
@@ -351,7 +349,7 @@ def main(
     test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, scaler, writer, id2classes=id2class, device=device, captioner=captioner, debug=debug, checkpoint=checkpoint)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
     
-    create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, harmonic_mean)
+    create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, ENSAMBLE_METHOD)
     
     writer.close()
 
