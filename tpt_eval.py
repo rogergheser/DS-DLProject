@@ -33,7 +33,7 @@ DEBUG = False
 HARMONIC_MEAN = False
 STD_DEV = True
 RUN_NAME = "stddev--CoCa"
-LOG_FREQUENCY = 5
+LOG_FREQUENCY = 50
 logger = logging.getLogger(__name__)
 
 
@@ -71,6 +71,7 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
         debug (bool): Whether to print debug information. Default is False.
 
     Returns:
+    
         The updated filtered_outputs with caption loss added.
         The caption prediction from the average of all the logits
     """
@@ -116,7 +117,8 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
     caption_prediction = torch.mean(caption_logits, dim=0)
     if debug:
         caption_report(filtered_inputs, image_logits, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
-
+    if batch_idx % LOG_FREQUENCY:
+        caption_report(filtered_inputs, image_logits, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
     return ice_scores
 
 
@@ -152,7 +154,9 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     # show batch
     if debug:
         batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
-
+    if batch_idx % LOG_FREQUENCY:
+        batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
+        
     prediction = avg_predictions.argmax(dim=1)
     return loss.item(), prediction, prediction_entropy
 
