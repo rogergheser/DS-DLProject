@@ -28,8 +28,9 @@ from utils import (entropy, avg_entropy, batch_report, filter_on_entropy, Averag
 from copy import deepcopy
 import torch.nn.functional as F
 import logging
+import pickle
 
-DEBUG = False
+DEBUG = True
 HARMONIC_MEAN = False
 STD_DEV = True
 RUN_NAME = "stddev--CoCa"
@@ -160,20 +161,27 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     prediction = avg_predictions.argmax(dim=1)
     return loss.item(), prediction, prediction_entropy
 
-def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, id2classes, device="cuda", captioner=None, debug=False):
-    cumulative_loss = AverageMeter()
-    top1 = AverageMeter()
-    top5 = AverageMeter()
+def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, id2classes, device="cuda", captioner=None, debug=False, checkpoint=None):
+    
+    if checkpoint:
+        offset, cumulative_loss, top1, top5, no_tpt_class_acc, tpt_class_acc = checkpoint
+    else:
+        offset = 0
+        cumulative_loss = AverageMeter()
+        top1 = AverageMeter()
+        top5 = AverageMeter()
 
-    no_tpt_class_acc = {c: [] for c in id2classes.values()}
-    tpt_class_acc = {c: [] for c in id2classes.values()}
+        no_tpt_class_acc = {c: AverageMeter() for c in id2classes.values()}
+        tpt_class_acc = {c: AverageMeter() for c in id2classes.values()}
+    
     loss_diff = 0.0
-
     optimizer_state = deepcopy(optimizer.state_dict())
 
     try:
-        pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
+        pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, initial=offset, total=len(data_loader)+offset)
         for batch_idx, (inputs, targets, _) in enumerate(data_loader):
+            batch_idx += offset # offset to continue from a checkpoint
+
             # Reset the prompt_learner to its initial state and the optimizer to its initial state
             with torch.no_grad():
                 net.reset()
@@ -197,18 +205,19 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
             # ! this is not correct, we are not computing the accuracy 
             # TODO fix this
             # TODO create a specific class to handle the metrics operations hiding details
+            _key = id2classes[no_tpt_prediction.item()]
             if no_tpt_prediction.item() == targets.item():
-                no_tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
+                no_tpt_class_acc[_key].update(1)
             else:
-                no_tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(0)
+                no_tpt_class_acc[_key].update(0)
 
             values, predictions = outputs.topk(5)
             if prediction == targets:
                 top1.update(1)
-                tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(1)
+                tpt_class_acc[_key].update(1)
             else:
                 top1.update(0)
-                tpt_class_acc[id2classes[no_tpt_prediction.item()]].append(0)
+                tpt_class_acc[_key].update(0)
 
             if targets.item() in predictions:
                 top5.update(1)
@@ -225,28 +234,35 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
             # Log Values
             writer.add_scalar("Delta_loss/test", loss_diff, batch_idx)
             writer.add_scalar("Delta_entropy/test", entropy_diff, batch_idx)
-            writer.add_scalar("Top-1", top1.get_avg()*100.00, batch_idx)
-            writer.add_scalar("Top-5", top5.get_avg()*100.00, batch_idx)
+            writer.add_scalar("Top-1", top1.get_avg(), batch_idx)
+            writer.add_scalar("Top-5", top5.get_avg(), batch_idx)
+
             if batch_idx % LOG_FREQUENCY == 0 :#and batch_idx > 10:
                 logger.info(f"[LOSS] Batch {batch_idx} - Delta loss: {loss_diff:.5f}, Delta entropy: {entropy_diff:.5f}")
-                no_tpt_accuracies, accuracies = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
+                no_tpt_accuracies, accuracies = compute_accuracies(no_tpt_class_acc, tpt_class_acc)
                 histogram = make_histogram(no_tpt_accuracies, accuracies, 
                                         'No TPT', 'TPT', save_path=f"runs/{RUN_NAME}/class_accuracy%{batch_idx}e.png")
                 writer.add_image(f"Class accuracies%{batch_idx}e", histogram, batch_idx, dataformats="HWC")
-                logger.info(f"[ACC] Batch num:{batch_idx} - Top1: {top1.get_avg() * 100:.2f}, Top5: {top5.get_avg() * 100:.2f}")
-            pbar.set_postfix(test_loss=loss.item(), top1=top1.get_avg() * 100.00, top5=top5.get_avg() * 100.00)
+                logger.info(f"[ACC] Batch num:{batch_idx} - Top1: {top1.get_avg()}, Top5: {top5.get_avg()}")
+
+                dump_object = batch_idx, cumulative_loss, top1, top5, no_tpt_class_acc, tpt_class_acc
+                pickle.dump(dump_object, open(f"runs/{RUN_NAME}/checkpoint%{batch_idx}.pkl", "wb"))
+            
+            
+            pbar.set_postfix(test_loss=loss.item(), top1=top1.get_avg(), top5=top5.get_avg())
             pbar.update(1)
 
     except KeyboardInterrupt:
         print("User keyboard interrupt")
 
     # Draw histogram of class accuracies
-    no_tpt_accuracies, accuracies = compute_accuracies(id2classes, no_tpt_class_acc, tpt_class_acc)
+    no_tpt_accuracies, accuracies = compute_accuracies(no_tpt_class_acc, tpt_class_acc)
     image = make_histogram(no_tpt_accuracies, accuracies, 'No TPT','TPT', save_path=f"runs/{RUN_NAME}/accuracy_by_class.png")
     image = make_histogram(no_tpt_accuracies, accuracies, 'No TPT','TPT', save_path=f"runs/{RUN_NAME}/accuracy_by_worst_class.png", worst_case=True)
+    
     writer.add_image("Class accuracies", image, 0, dataformats="HWC")
 
-    return cumulative_loss.get_avg() , top1.get_avg() * 100
+    return cumulative_loss.get_avg() , top1.get_avg()
 
 def main(
     dataset_name="imagenet_a",
@@ -259,13 +275,24 @@ def main(
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
-    ice_loss=True,
+    ice_loss=False,
     harmonic_mean=HARMONIC_MEAN,
     debug=DEBUG
 ):
     HARMONIC_MEAN = harmonic_mean
     DEBUG = debug
     RUN_NAME = run_name
+
+    checkpoints = [file for file in os.listdir(f"runs/{RUN_NAME}") if file.startswith("checkpoint")]
+    if len(checkpoints) > 0:
+        files = sorted(checkpoints,
+                        key=lambda x: int(x.split("%")[1].split(".")[0]),
+                        reverse=True)
+        checkpoint = pickle.load(open(f"runs/{RUN_NAME}/{files[0]}", "rb"))
+        from_idx = checkpoint[0]
+    else:
+        checkpoint = None
+        from_idx = 0
 
     seed = 0
     print("Using manual seed {}".format(seed))
@@ -279,7 +306,7 @@ def main(
     data_transform = Augmixer(preprocess, batch_size, augmix=True, severity=1)
     # Get dataloaders
     _, _, test_loader, classnames, id2class = get_data(
-        dataset_name, 1, data_transform, train_size=0, val_size=0, shuffle=True
+        dataset_name, 1, data_transform, train_size=0, val_size=0, from_idx=from_idx
     )    
 
     # Instantiate the network and move it to the chosen device (GPU)
@@ -322,7 +349,7 @@ def main(
         captioner = Captioner(model_name=model_name, version=version, device=device)
 
     print(f"Beginning testing with TPT + ice_loss={ice_loss}:")
-    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, scaler, writer, id2classes=id2class, device=device, captioner=captioner, debug=debug)
+    test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, scaler, writer, id2classes=id2class, device=device, captioner=captioner, debug=debug, checkpoint=checkpoint)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
     
     create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, harmonic_mean)
@@ -341,10 +368,9 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     os.makedirs(f"runs/{RUN_NAME}", exist_ok=True)
     
+    # Remove this or handle checkpoint case
     log_path = f"runs/{RUN_NAME}/log.log"
-    if os.path.isfile(log_path):
-        os.remove(log_path)
-
+    
     file_handler = logging.FileHandler(log_path)
     stderr_handler = logging.StreamHandler(sys.stderr)
 
