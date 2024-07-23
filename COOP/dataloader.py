@@ -1,3 +1,4 @@
+import random
 import torch
 from torch.utils import data
 from torch.utils.data import random_split
@@ -29,7 +30,18 @@ class AugmixFolder(datasets.ImageFolder):
             return img.squeeze(0), label, path
         return img, label, path
 
-def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, val_size=0.1):
+class CustomSampler(torch.utils.data.Sampler):
+    def __init__(self, indices, from_idx: int = 0):
+        self.indices = indices[from_idx:]
+
+    def __iter__(self):
+        return iter(self.indices)
+    
+    def __len__(self):
+        return len(self.indices)
+    
+
+def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, val_size=0.1, from_idx=0):
     """
     Loads the dataset and splits it into training, validation and test sets. Available datsets:
     ["cifar10", "cifar100", "imagenet_v2", "imagenet_a"]
@@ -68,9 +80,11 @@ def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, 
     if(n_train + n_val == 0):
         train_loader, val_loader = None, None
         if batch_size == 1:
-            test_loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=my_collate)
+            test_loader = data.DataLoader(dataset, batch_size=batch_size, 
+                                          sampler=CustomSampler(range(n), from_idx=from_idx), collate_fn=my_collate)
         else:
-            test_loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+            test_loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
+                                          sampler=CustomSampler(range(n), from_idx=from_idx))
     else:
         train_dataset, val_dataset, test_dataset = random_split(dataset, [n_train, n_val, n_test])
 
