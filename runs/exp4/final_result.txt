@@ -1,1 +1,0 @@
-{"dataset": "imagenet_a", "backbone": "ViT-B/16", "ice_loss": true, "top1": 0.0, "exp_name": "exp4"}
