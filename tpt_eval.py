@@ -30,11 +30,10 @@ import torch.nn.functional as F
 import logging
 import pickle
 
-DEBUG = True
-HARMONIC_MEAN = False
-STD_DEV = True
+DEBUG = False
+ENSAMBLE_METHOD = "std_dev"
 RUN_NAME = "stddev--CoCa"
-LOG_FREQUENCY = 50
+LOG_FREQUENCY = 100
 logger = logging.getLogger(__name__)
 
 
@@ -56,7 +55,7 @@ def get_caption_logits(captioner:Captioner, captions, id2class):
 
     return (caption_logits * scale).softmax(-1)
 
-def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, id2classes, prompt="a ", _lambda=0, K=200, debug=False):
+def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, id2classes, prompt="a ", ensamble_method="entropy", K=200, debug=False):
     """
     Adds caption loss to the filtered_outputs using the given captioner.
 
@@ -95,30 +94,33 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
     # Compute the value of lambda following ice implementation row 193 main_ice.py
     assert K == 200, "For k != 200, function has to be implemented"
 
-    if _lambda:
-        ice_scores = (1-_lambda)*image_logits + _lambda*caption_logits
-    else:
-        # Lambda computed as a normalization term
-        ice_scores = torch.zeros_like(image_logits)
+    # Lambda computed as a normalization term
+    ice_scores = torch.zeros_like(image_logits)
+
+    if ensamble_method == "std_dev":
+        std_devs = torch.stack((image_logits.std(dim=1), caption_logits.std(dim=1)), dim=1)
+        coef = 0.08 * F.normalize(std_devs, dim=1)
+        coef = coef[:, 1].unsqueeze(1).expand(-1, K)
+        # Sum the image and caption scores to obtain the ICE scores
+        ice_scores = image_logits + coef * caption_logits
+    elif ensamble_method == "entropy":
         for batch in range(image_logits.shape[0]):
-            if HARMONIC_MEAN:
-                ice_scores[batch] = (2 * image_logits[batch] * caption_logits[batch]).div(image_logits[batch] + caption_logits[batch])
-            elif STD_DEV:
-                std_devs = torch.stack((image_logits.std(dim=1), caption_logits.std(dim=1)), dim=1)
-                coef = 0.08 * F.normalize(std_devs, dim=1)
-                coef = coef[:, 1].unsqueeze(1).expand(-1, K)
-                # Sum the image and caption scores to obtain the ICE scores
-                ice_scores = image_logits + coef * caption_logits
-            else:
-                A = 1/(1 + entropy(image_logits[batch]).item())
-                B = 1/(1 + entropy(caption_logits[batch]).item())
-                C = A + B
-                ice_scores[batch] = (A/C * image_logits[batch] + B/C * caption_logits[batch])
+            A = 1/(1 + entropy(image_logits[batch]).item())
+            B = 1/(1 + entropy(caption_logits[batch]).item())
+            C = A + B
+            ice_scores[batch] = (A/C * image_logits[batch] + B/C * caption_logits[batch])
+    elif ensamble_method == "harmonic_mean":
+        for batch in range(image_logits.shape[0]):
+            ice_scores[batch] = (2 * image_logits[batch] * caption_logits[batch]).div(image_logits[batch] + caption_logits[batch])
+    else:
+        raise ValueError("Ensamble method not implemented")
+        
 
     caption_prediction = torch.mean(caption_logits, dim=0)
     if debug:
         caption_report(filtered_inputs, image_logits, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
-    if batch_idx % LOG_FREQUENCY:
+
+    if batch_idx % LOG_FREQUENCY == 0:
         caption_report(filtered_inputs, image_logits, caption_logits, ice_scores, label, captions, caption_prediction, id2classes, batch_idx)    
     return ice_scores
 
@@ -136,7 +138,7 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     filtered_inputs, filtered_outputs = filter_on_entropy(inputs, outputs, p_percentile=10, return_original=debug)
     if captioner is not None:
         batch = (batch_idx, filtered_inputs, filtered_outputs, targets)
-        filtered_outputs = add_caption_loss(net, captioner, batch, text_features, id2classes, debug=debug)
+        filtered_outputs = add_caption_loss(net, captioner, batch, text_features, id2classes, debug=debug, ensamble_method=ENSAMBLE_METHOD)
 
     avg_predictions = torch.mean(filtered_outputs, dim=0).unsqueeze(0)
     prediction_entropy = entropy(avg_predictions).item()
@@ -155,7 +157,7 @@ def tta_net_train(batch, net, optimizer, scaler, id2classes, device="cuda", capt
     # show batch
     if debug:
         batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
-    if batch_idx % LOG_FREQUENCY:
+    if batch_idx % LOG_FREQUENCY == 0:
         batch_report(filtered_inputs, filtered_outputs, avg_predictions, targets, id2classes, batch_n=batch_idx)
         
     prediction = avg_predictions.argmax(dim=1)
@@ -202,10 +204,7 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
                 cumulative_loss.update(loss.item())
 
             # Update accuracies
-            # ! this is not correct, we are not computing the accuracy 
-            # TODO fix this
-            # TODO create a specific class to handle the metrics operations hiding details
-            _key = id2classes[no_tpt_prediction.item()]
+            _key = id2classes[targets.item()]
             if no_tpt_prediction.item() == targets.item():
                 no_tpt_class_acc[_key].update(1)
             else:
@@ -275,11 +274,9 @@ def main(
     ctx_init="a_photo_of_a",
     class_token_position="end",
     csc=False,
-    ice_loss=False,
-    harmonic_mean=HARMONIC_MEAN,
+    ice_loss=True,
     debug=DEBUG
 ):
-    HARMONIC_MEAN = harmonic_mean
     DEBUG = debug
     RUN_NAME = run_name
 
@@ -352,7 +349,7 @@ def main(
     test_loss, test_accuracy = tpt_train_loop(test_loader, net, optimizer, cost_function, scaler, writer, id2classes=id2class, device=device, captioner=captioner, debug=debug, checkpoint=checkpoint)
     print(f"\tTest loss {test_loss:.5f}, Test accuracy {test_accuracy:.2f}")
     
-    create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, harmonic_mean)
+    create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, ENSAMBLE_METHOD)
     
     writer.close()
 
