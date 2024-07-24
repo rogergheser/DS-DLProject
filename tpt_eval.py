@@ -31,9 +31,11 @@ import logging
 import pickle
 
 DEBUG = False
-ENSAMBLE_METHOD = "std_dev"
-RUN_NAME = "stddev--CoCa"
+HARMONIC_MEAN = False
+STD_DEV = False
+RUN_NAME = "entropy-avg--CoCa"
 LOG_FREQUENCY = 100
+ENSAMBLE_METHOD = 'entropy'
 logger = logging.getLogger(__name__)
 
 
@@ -253,6 +255,16 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
 
     except KeyboardInterrupt:
         print("User keyboard interrupt")
+    if batch_idx % LOG_FREQUENCY != 0 or batch_idx == len(data_loader) + offset:#and batch_idx > 10:
+        logger.info(f"[LOSS] Batch {batch_idx} - Delta loss: {loss_diff:.5f}, Delta entropy: {entropy_diff:.5f}")
+        no_tpt_accuracies, accuracies = compute_accuracies(no_tpt_class_acc, tpt_class_acc)
+        histogram = make_histogram(no_tpt_accuracies, accuracies, 
+                                'No TPT', 'TPT', save_path=f"runs/{RUN_NAME}/class_accuracy%{batch_idx}e.png")
+        writer.add_image(f"Class accuracies%{batch_idx}e", histogram, batch_idx, dataformats="HWC")
+        logger.info(f"[ACC] Batch num:{batch_idx} - Top1: {top1.get_avg()}, Top5: {top5.get_avg()}")
+
+        dump_object = batch_idx, cumulative_loss, top1, top5, no_tpt_class_acc, tpt_class_acc
+        pickle.dump(dump_object, open(f"runs/{RUN_NAME}/checkpoint%{batch_idx}.pkl", "wb"))
 
     # Draw histogram of class accuracies
     no_tpt_accuracies, accuracies = compute_accuracies(no_tpt_class_acc, tpt_class_acc)

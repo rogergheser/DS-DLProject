@@ -267,9 +267,6 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
     no_tpt_acc = {k: v for k, v in no_tpt_acc.items() if v != -1}
     tpt_acc = {k: v for k, v in tpt_acc.items() if v != -1}
 
-    classes = list(no_tpt_acc.keys())
-    x = np.arange(len(classes))
-    width = 0.35    
 
     if worst_case:
         worse_no_tpt_acc, worse_tpt_acc = {}, {}
@@ -281,6 +278,9 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
         no_tpt_acc = worse_no_tpt_acc
         tpt_acc = worse_tpt_acc
             
+    classes = list(no_tpt_acc.keys())
+    x = np.arange(len(classes))
+    width = 0.35    
 
     fig, ax = plt.subplots(dpi=500)
     ax.bar(x - width/2, no_tpt_acc.values(), width, color='b', label=no_tpt_label)
@@ -432,14 +432,14 @@ def caption_report(images, image_logits, caption_logits, ice_scores, label, outp
     plt.savefig(f"caption_reports/batch_{idx}.png")
     plt.close()
 
-def create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, harmonic_mean):
+def create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, ensamble_method):
     info = {
         "dataset": dataset_name,
         "backbone": backbone,
         "ice_loss": ice_loss,
         "top1": test_accuracy,
         "exp_name": run_name,
-        "ice average": 'harmonic mean' if harmonic_mean else 'weighted average'
+        "ice average": ensamble_method
     }
     with open(f"runs/{run_name}/final_result.txt", "w") as file:
         json.dump(info, file)

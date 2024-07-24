@@ -1,0 +1,1 @@
+{"dataset": "imagenet_a", "backbone": "ViT-B/16", "ice_loss": false, "top1": 56.6515595841109, "exp_name": "baseline-CLIP-ViT-B-16", "ice average": "harmonic mean"}
