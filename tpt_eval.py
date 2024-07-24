@@ -33,9 +33,9 @@ import pickle
 DEBUG = False
 HARMONIC_MEAN = False
 STD_DEV = False
-RUN_NAME = "entropy-avg--CoCa"
+RUN_NAME = "imagenetA/stddev--CoCa"
 LOG_FREQUENCY = 100
-ENSAMBLE_METHOD = 'entropy'
+ENSAMBLE_METHOD = 'std_dev'
 logger = logging.getLogger(__name__)
 
 
