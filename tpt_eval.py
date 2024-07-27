@@ -7,6 +7,9 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
 import torchvision.transforms as transforms
+import torch.nn.functional as F
+import logging
+import pickle
 import matplotlib.pyplot as plt
 try:
     from torchvision.transforms import InterpolationMode
@@ -26,9 +29,7 @@ from tqdm import tqdm
 from utils import (entropy, avg_entropy, batch_report, filter_on_entropy, AverageMeter,
                 report_predictions, make_histogram, compute_accuracies, caption_report, create_run_info)
 from copy import deepcopy
-import torch.nn.functional as F
-import logging
-import pickle
+
 
 DEBUG = False
 HARMONIC_MEAN = False
