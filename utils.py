@@ -10,6 +10,7 @@ from datetime import datetime
 from torchvision import transforms
 from matplotlib import pyplot as plt
 from PIL import Image
+from typing import List, Union
 
 def show_image(image, label):
     image = image.numpy()
@@ -22,7 +23,7 @@ def entropy(p):
     """
     Given a tensor p representing a probability distribution, returns the entropy of the distribution
     """
-    return -torch.sum(p * torch.log(p + 1e-8))
+    return -torch.sum(p * torch.log(p + 1e-7))
 
 def get_index(path):
     """
@@ -89,7 +90,12 @@ class AverageMeter(object):
         self.count += n
 
     def get_avg(self):
-        return self.sum / self.count
+        """
+        Returns the average value of the meter, -1 if no values have been added
+        """
+        if self.count == 0:
+            return -1
+        return self.sum / self.count * 100.00
     
 def generate_augmented_batch(original_tensor, num_images, augmix_module):
     batch = [original_tensor]  # Start with the original image
@@ -165,35 +171,6 @@ def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n
 
     plt.savefig(f"batch_reports/Batch{batch_n}.png")
     plt.close()
-
-def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label: str, save_path:str=None)-> Image:
-    """
-    Creates histogram for class accuracies and log it with tensorboard and saves the plot
-    """
-    classes = list(no_tpt_acc.keys())
-    x = np.arange(len(classes))
-    width = 0.35
-
-    fig, ax = plt.subplots(dpi=500)
-    ax.bar(x - width/2, no_tpt_acc.values(), width, color='b', label=no_tpt_label)
-    ax.bar(x + width/2, tpt_acc.values(), width, color='r', label=tpt_label)
-    
-    ax.set_ylabel('Accuracy')
-    ax.set_title('Class accuracies')
-    ax.set_xticks(x)
-    ax.set_xticklabels(classes, rotation=-90, fontsize=2)
-
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    buf.seek(0)
-
-    image = Image.open(buf)
-    image = np.array(image)
-
-    if save_path:
-        plt.savefig(save_path)
-
-    return image
 
 
 def batch_report(inputs:torch.Tensor, outputs: torch.Tensor, final_prediction:torch.Tensor,
@@ -286,13 +263,14 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
 
     :return: PIL.Image: image of the plot
     """
-    classes = list(no_tpt_acc.keys())
-    x = np.arange(len(classes))
-    width = 0.35
+
+    no_tpt_acc = {k: v for k, v in no_tpt_acc.items() if v != -1}
+    tpt_acc = {k: v for k, v in tpt_acc.items() if v != -1}
+
 
     if worst_case:
         worse_no_tpt_acc, worse_tpt_acc = {}, {}
-        for (key, val) in  tpt_acc.items():
+        for key in tpt_acc.keys():
             if tpt_acc[key] < no_tpt_acc[key]:
                 worse_no_tpt_acc[key] = no_tpt_acc[key]
                 worse_tpt_acc[key] = tpt_acc[key]
@@ -300,6 +278,9 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
         no_tpt_acc = worse_no_tpt_acc
         tpt_acc = worse_tpt_acc
             
+    classes = list(no_tpt_acc.keys())
+    x = np.arange(len(classes))
+    width = 0.35    
 
     fig, ax = plt.subplots(dpi=500)
     ax.bar(x - width/2, no_tpt_acc.values(), width, color='b', label=no_tpt_label)
@@ -309,7 +290,7 @@ def make_histogram(no_tpt_acc: dict, tpt_acc: dict, no_tpt_label: str, tpt_label
     ax.set_ylabel('Accuracy')
     ax.set_title('Class accuracies')
     ax.set_xticks(x)
-    ax.set_xticklabels(classes, rotation=-90, fontsize=2)
+    ax.set_xticklabels(classes, rotation=-90, fontsize=7.1-(len(classes)/200*7))
 
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
@@ -341,25 +322,16 @@ def report_predictions(idx:int, predictions:str, values:float, target:str):
             f.write(f"\t{pred}: {value:.2f}\n")
         f.write(f"{datetime.now()}")
 
-def compute_accuracies(id2classes:dict, no_tpt_class_acc:dict, tpt_class_acc:dict):
+def compute_accuracies(no_tpt_class_acc:dict[AverageMeter], tpt_class_acc:dict[AverageMeter]):
     """
     Computes the average accuracy for each class before and after TPT
-    :param: id2classes: dict: mapping from class index to class name
     :param: no_tpt_class_acc: dict: class accuracies before TPT
     :param: tpt_class_acc: dict: class accuracies after TPT
 
     :return: dict, dict: no_tpt_accuracies, accuracies
     """
-    no_tpt_accuracies = {}
-    accuracies = {}
-
-    for c in id2classes.values():
-        if len(no_tpt_class_acc[c]) == 0 or len(tpt_class_acc[c]) == 0:
-            no_tpt_accuracies[c] = 0
-            accuracies[c] = 0
-            continue
-        no_tpt_accuracies[c] = sum(no_tpt_class_acc[c]) / len(no_tpt_class_acc[c])
-        accuracies[c] = sum(tpt_class_acc[c]) / len(tpt_class_acc[c])
+    no_tpt_accuracies = {key: val.get_avg() for key, val in no_tpt_class_acc.items()}
+    accuracies = {key: val.get_avg() for key, val in tpt_class_acc.items()}
 
     return no_tpt_accuracies, accuracies
 
@@ -460,14 +432,14 @@ def caption_report(images, image_logits, caption_logits, ice_scores, label, outp
     plt.savefig(f"caption_reports/batch_{idx}.png")
     plt.close()
 
-def create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, harmonic_mean):
+def create_run_info(dataset_name, backbone, ice_loss, test_accuracy, run_name, ensamble_method):
     info = {
         "dataset": dataset_name,
         "backbone": backbone,
         "ice_loss": ice_loss,
         "top1": test_accuracy,
         "exp_name": run_name,
-        "ice average": 'harmonic mean' if harmonic_mean else 'weighted average'
+        "ice average": ensamble_method
     }
     with open(f"runs/{run_name}/final_result.txt", "w") as file:
         json.dump(info, file)

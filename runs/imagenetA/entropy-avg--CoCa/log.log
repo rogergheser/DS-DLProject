@@ -1,0 +1,166 @@
+[LOSS] Batch 0 - Delta loss: 5.10448, Delta entropy: -2.12787
+[ACC] Batch num:0 - Top1: 100.0, Top5: 100.0
+[LOSS] Batch 100 - Delta loss: 5.29479, Delta entropy: -0.94057
+[ACC] Batch num:100 - Top1: 70.29702970297029, Top5: 91.0891089108911
+[LOSS] Batch 200 - Delta loss: 5.28838, Delta entropy: -2.80234
+[ACC] Batch num:200 - Top1: 72.13930348258707, Top5: 90.04975124378109
+[LOSS] Batch 300 - Delta loss: 5.29283, Delta entropy: -3.31847
+[ACC] Batch num:300 - Top1: 72.42524916943522, Top5: 87.70764119601328
+[LOSS] Batch 400 - Delta loss: 5.29656, Delta entropy: -6.37140
+[ACC] Batch num:400 - Top1: 74.81296758104739, Top5: 89.02743142144638
+[LOSS] Batch 500 - Delta loss: 5.22373, Delta entropy: -8.11898
+[ACC] Batch num:500 - Top1: 75.44910179640718, Top5: 89.22155688622755
+[LOSS] Batch 600 - Delta loss: 0.86645, Delta entropy: -35.27901
+[ACC] Batch num:600 - Top1: 72.54575707154743, Top5: 89.01830282861897
+[LOSS] Batch 700 - Delta loss: 3.34972, Delta entropy: -103.41838
+[ACC] Batch num:700 - Top1: 71.32667617689016, Top5: 89.30099857346647
+[LOSS] Batch 800 - Delta loss: 1.42046, Delta entropy: -18.34776
+[ACC] Batch num:800 - Top1: 70.78651685393258, Top5: 89.51310861423221
+[LOSS] Batch 900 - Delta loss: 5.11634, Delta entropy: -25.48180
+[ACC] Batch num:900 - Top1: 69.58934517203107, Top5: 88.34628190899001
+[LOSS] Batch 1000 - Delta loss: 4.38112, Delta entropy: -15.67304
+[ACC] Batch num:1000 - Top1: 65.53446553446554, Top5: 86.3136863136863
+[LOSS] Batch 1100 - Delta loss: 5.16794, Delta entropy: -34.27541
+[ACC] Batch num:1100 - Top1: 63.57856494096276, Top5: 85.74023614895549
+[LOSS] Batch 1200 - Delta loss: 5.26083, Delta entropy: -39.06687
+[ACC] Batch num:1200 - Top1: 64.52955870108244, Top5: 86.42797668609492
+[LOSS] Batch 1300 - Delta loss: 5.17444, Delta entropy: -46.54234
+[ACC] Batch num:1300 - Top1: 64.79631053036125, Top5: 86.31821675634127
+[LOSS] Batch 1400 - Delta loss: -0.88286, Delta entropy: -800.07835
+[ACC] Batch num:1400 - Top1: 64.52533904354033, Top5: 86.29550321199143
+[LOSS] Batch 1500 - Delta loss: -1.98670, Delta entropy: -518.30088
+[ACC] Batch num:1500 - Top1: 64.09060626249166, Top5: 85.94270486342438
+[LOSS] Batch 1600 - Delta loss: 0.89364, Delta entropy: -69.82775
+[ACC] Batch num:1600 - Top1: 64.27232979387882, Top5: 86.00874453466584
+[LOSS] Batch 1700 - Delta loss: 5.16423, Delta entropy: -64.31492
+[ACC] Batch num:1700 - Top1: 65.02057613168725, Top5: 86.30217519106408
+[LOSS] Batch 1800 - Delta loss: 5.14800, Delta entropy: -69.43397
+[ACC] Batch num:1800 - Top1: 65.07495835646863, Top5: 86.56302054414215
+[LOSS] Batch 1900 - Delta loss: 5.29325, Delta entropy: -76.30088
+[ACC] Batch num:1900 - Top1: 65.49184639663335, Top5: 87.0594423987375
+[LOSS] Batch 2000 - Delta loss: -0.83252, Delta entropy: -257.33785
+[ACC] Batch num:2000 - Top1: 66.21689155422288, Top5: 87.2063968015992
+[LOSS] Batch 2100 - Delta loss: 0.65052, Delta entropy: -55.05019
+[ACC] Batch num:2100 - Top1: 65.68300809138505, Top5: 87.38695859114706
+[LOSS] Batch 2200 - Delta loss: 5.27711, Delta entropy: -95.54097
+[ACC] Batch num:2200 - Top1: 64.51612903225806, Top5: 87.41481144934122
+[LOSS] Batch 2300 - Delta loss: 5.28422, Delta entropy: -98.25214
+[ACC] Batch num:2300 - Top1: 63.05953933072577, Top5: 86.13646240764885
+[LOSS] Batch 2400 - Delta loss: 4.19534, Delta entropy: -102.89832
+[ACC] Batch num:2400 - Top1: 62.89046230737193, Top5: 85.79758433985839
+[LOSS] Batch 2500 - Delta loss: 3.68416, Delta entropy: -530.44425
+[ACC] Batch num:2500 - Top1: 62.0951619352259, Top5: 85.76569372251099
+[LOSS] Batch 2600 - Delta loss: 5.27856, Delta entropy: -115.58285
+[ACC] Batch num:2600 - Top1: 61.82237600922722, Top5: 85.62091503267973
+[LOSS] Batch 2700 - Delta loss: 3.13145, Delta entropy: -129.93019
+[ACC] Batch num:2700 - Top1: 61.97704553868938, Top5: 85.7830433172899
+[LOSS] Batch 2800 - Delta loss: 2.36626, Delta entropy: -777.89678
+[ACC] Batch num:2800 - Top1: 62.08496965369511, Top5: 85.96929667975724
+[LOSS] Batch 2900 - Delta loss: 5.29239, Delta entropy: -156.99178
+[ACC] Batch num:2900 - Top1: 62.32333678042055, Top5: 86.1427094105481
+[LOSS] Batch 3000 - Delta loss: 5.16232, Delta entropy: -166.90856
+[ACC] Batch num:3000 - Top1: 62.545818060646454, Top5: 86.33788737087637
+[LOSS] Batch 3100 - Delta loss: 5.24352, Delta entropy: -172.34959
+[ACC] Batch num:3100 - Top1: 62.528216704288944, Top5: 86.19800064495324
+[LOSS] Batch 3200 - Delta loss: 3.66481, Delta entropy: -183.55013
+[ACC] Batch num:3200 - Top1: 62.23055295220243, Top5: 86.12933458294283
+[LOSS] Batch 3300 - Delta loss: 5.28874, Delta entropy: -185.92932
+[ACC] Batch num:3300 - Top1: 62.314450166616176, Top5: 86.27688579218419
+[LOSS] Batch 3300 - Delta loss: 5.29022, Delta entropy: -186.04642
+[ACC] Batch num:3300 - Top1: 62.32586311326469, Top5: 86.28104179285282
+[LOSS] Batch 3400 - Delta loss: 5.05435, Delta entropy: -201.07320
+[ACC] Batch num:3400 - Top1: 61.81657848324515, Top5: 86.0082304526749
+[LOSS] Batch 3500 - Delta loss: -0.71132, Delta entropy: -99.59801
+[ACC] Batch num:3500 - Top1: 61.5648201027984, Top5: 85.72244431753285
+[LOSS] Batch 3600 - Delta loss: 5.15400, Delta entropy: -211.55778
+[ACC] Batch num:3600 - Top1: 61.521377012770685, Top5: 85.5635757912271
+[LOSS] Batch 3700 - Delta loss: 5.22935, Delta entropy: -217.50626
+[ACC] Batch num:3700 - Top1: 61.3452188006483, Top5: 85.49432739059968
+[LOSS] Batch 3800 - Delta loss: 5.28098, Delta entropy: -227.08957
+[ACC] Batch num:3800 - Top1: 61.17832719621252, Top5: 85.40241977906365
+[LOSS] Batch 3900 - Delta loss: -0.01686, Delta entropy: -220.60979
+[ACC] Batch num:3900 - Top1: 61.01998974884675, Top5: 85.54587391081496
+[LOSS] Batch 3900 - Delta loss: -0.06354, Delta entropy: -220.60503
+[ACC] Batch num:3900 - Top1: 61.00435562387907, Top5: 85.54957724827055
+[LOSS] Batch 4000 - Delta loss: 4.99662, Delta entropy: -241.98169
+[ACC] Batch num:4000 - Top1: 60.62952785410942, Top5: 85.48588558581064
+[LOSS] Batch 4100 - Delta loss: 0.69705, Delta entropy: -257.15518
+[ACC] Batch num:4100 - Top1: 60.711674384596634, Top5: 85.54716061418475
+[LOSS] Batch 4200 - Delta loss: 5.29445, Delta entropy: -252.53206
+[ACC] Batch num:4200 - Top1: 60.932667142517246, Top5: 85.46276469188675
+[LOSS] Batch 4300 - Delta loss: -1.67187, Delta entropy: -300.87463
+[ACC] Batch num:4300 - Top1: 61.07366953288403, Top5: 85.49848942598187
+[LOSS] Batch 4400 - Delta loss: -4.32648, Delta entropy: -176.85892
+[ACC] Batch num:4400 - Top1: 61.27640245287304, Top5: 85.57801498977969
+[LOSS] Batch 4500 - Delta loss: 5.29134, Delta entropy: -276.93469
+[ACC] Batch num:4500 - Top1: 61.11481234732401, Top5: 85.5429713524317
+[LOSS] Batch 4600 - Delta loss: 5.19076, Delta entropy: -293.72087
+[ACC] Batch num:4600 - Top1: 61.45991744514448, Top5: 85.70497501629372
+[LOSS] Batch 4700 - Delta loss: 5.29495, Delta entropy: -314.27925
+[ACC] Batch num:4700 - Top1: 61.47140123325537, Top5: 85.66872209228153
+[LOSS] Batch 4800 - Delta loss: 5.29425, Delta entropy: -340.39009
+[ACC] Batch num:4800 - Top1: 61.75307099729336, Top5: 85.80054132833645
+[LOSS] Batch 4900 - Delta loss: -0.95665, Delta entropy: -424.20522
+[ACC] Batch num:4900 - Top1: 61.778502957373036, Top5: 85.76381807056904
+[LOSS] Batch 5000 - Delta loss: 5.25051, Delta entropy: -384.08360
+[ACC] Batch num:5000 - Top1: 61.52308614831101, Top5: 85.56865880471717
+[LOSS] Batch 5100 - Delta loss: 0.11615, Delta entropy: -145.83283
+[ACC] Batch num:5100 - Top1: 61.70879874583578, Top5: 85.67509308250048
+[LOSS] Batch 5200 - Delta loss: 5.29120, Delta entropy: -427.28645
+[ACC] Batch num:5200 - Top1: 61.445320007687876, Top5: 85.4507015183548
+[LOSS] Batch 5300 - Delta loss: -3.58109, Delta entropy: -531.19576
+[ACC] Batch num:5300 - Top1: 61.32377899302281, Top5: 85.25363002074297
+[LOSS] Batch 5400 - Delta loss: 4.99383, Delta entropy: -467.17442
+[ACC] Batch num:5400 - Top1: 61.07717934480844, Top5: 84.93429576161392
+[LOSS] Batch 5500 - Delta loss: -0.63086, Delta entropy: -870.43463
+[ACC] Batch num:5500 - Top1: 60.78502634926404, Top5: 84.69925495184445
+[LOSS] Batch 5600 - Delta loss: 4.23181, Delta entropy: -346.88378
+[ACC] Batch num:5600 - Top1: 60.628234874174545, Top5: 84.66892736034268
+[LOSS] Batch 5600 - Delta loss: 5.24617, Delta entropy: -536.16806
+[ACC] Batch num:5600 - Top1: 60.635260528194145, Top5: 84.6716630977873
+[LOSS] Batch 5700 - Delta loss: 5.29278, Delta entropy: -574.57387
+[ACC] Batch num:5700 - Top1: 60.65918653576438, Top5: 84.64235624123421
+[LOSS] Batch 5800 - Delta loss: 4.76853, Delta entropy: -593.28098
+[ACC] Batch num:5800 - Top1: 60.665058580289454, Top5: 84.61405926946934
+[LOSS] Batch 5900 - Delta loss: 3.42301, Delta entropy: -925.93868
+[ACC] Batch num:5900 - Top1: 60.179539295392956, Top5: 84.14634146341463
+[LOSS] Batch 6000 - Delta loss: 5.28523, Delta entropy: -632.88345
+[ACC] Batch num:6000 - Top1: 60.04330446369087, Top5: 84.09393737508329
+[LOSS] Batch 6100 - Delta loss: 2.16875, Delta entropy: -163.03783
+[ACC] Batch num:6100 - Top1: 59.846002621231975, Top5: 83.99410222804718
+[LOSS] Batch 6200 - Delta loss: 1.35444, Delta entropy: -379.24498
+[ACC] Batch num:6200 - Top1: 59.477756286266924, Top5: 83.70406189555126
+[LOSS] Batch 6300 - Delta loss: 0.55316, Delta entropy: -402.72019
+[ACC] Batch num:6300 - Top1: 59.2480964467005, Top5: 83.50253807106598
+[LOSS] Batch 6400 - Delta loss: 5.14308, Delta entropy: -771.41193
+[ACC] Batch num:6400 - Top1: 59.22860712054966, Top5: 83.46346033728919
+[LOSS] Batch 6500 - Delta loss: -4.39737, Delta entropy: -1022.45042
+[ACC] Batch num:6500 - Top1: 58.90221402214022, Top5: 83.3179581795818
+[LOSS] Batch 6600 - Delta loss: 0.04982, Delta entropy: -340.90727
+[ACC] Batch num:6600 - Top1: 58.903694730466384, Top5: 83.29800121138705
+[LOSS] Batch 6700 - Delta loss: -2.14650, Delta entropy: -770.33930
+[ACC] Batch num:6700 - Top1: 58.830548926014316, Top5: 83.47255369928402
+[LOSS] Batch 6700 - Delta loss: -1.71161, Delta entropy: -770.30811
+[ACC] Batch num:6700 - Top1: 58.82177479492916, Top5: 83.47501864280387
+[LOSS] Batch 6800 - Delta loss: -1.34362, Delta entropy: -716.46336
+[ACC] Batch num:6800 - Top1: 58.73622336517267, Top5: 83.3651726671565
+[LOSS] Batch 6900 - Delta loss: 3.09652, Delta entropy: -571.55558
+[ACC] Batch num:6900 - Top1: 58.72556118754526, Top5: 83.30195510499638
+[LOSS] Batch 7000 - Delta loss: 0.84317, Delta entropy: -734.20516
+[ACC] Batch num:7000 - Top1: 58.7152034261242, Top5: 83.24054246966452
+[LOSS] Batch 7100 - Delta loss: -3.20829, Delta entropy: -795.35636
+[ACC] Batch num:7100 - Top1: 58.8036593947924, Top5: 83.26530612244898
+[LOSS] Batch 7200 - Delta loss: 5.29338, Delta entropy: -971.99293
+[ACC] Batch num:7200 - Top1: 58.848022206800835, Top5: 83.23386537126996
+[LOSS] Batch 7300 - Delta loss: -2.49305, Delta entropy: -542.62818
+[ACC] Batch num:7300 - Top1: 58.795345653661876, Top5: 83.14852840520192
+[LOSS] Batch 7400 - Delta loss: 5.24872, Delta entropy: -1017.96204
+[ACC] Batch num:7400 - Top1: 58.649561107359894, Top5: 82.98446995273464
+[LOSS] Batch 7400 - Delta loss: 5.26195, Delta entropy: -1017.96874
+[ACC] Batch num:7400 - Top1: 58.65514447745072, Top5: 82.98676748582231
+[LOSS] Batch 7400 - Delta loss: 5.25167, Delta entropy: -1018.02960
+[ACC] Batch num:7400 - Top1: 58.660726339948695, Top5: 82.98906439854193
+[LOSS] Batch 7499 - Delta loss: 5.04741, Delta entropy: -1056.99645
+[ACC] Batch num:7499 - Top1: 58.56648014921396, Top5: 82.85371702637889
+[LOSS] Batch 7499 - Delta loss: 3.58080, Delta entropy: -981.37675
+[ACC] Batch num:7499 - Top1: 58.558678566671105, Top5: 82.85600106567203

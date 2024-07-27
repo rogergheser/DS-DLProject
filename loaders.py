@@ -12,7 +12,7 @@ from augmix import augmentations, post_augmentations, augmentations_basic
 from PIL import Image
 
 
-def load_imagenet_A(path:str, batch_size:int, preprocess:transforms.Compose, shuffle:bool=True, percentage:float=1.0):
+def load_imagenet_A(path:str, batch_size:int, preprocess:transforms.Compose, shuffle:bool=True, percentage:float=1.0, from_idx=0):
     """
     Loads the images from the ImageNet-A dataset
     :param path: str: path to the ImageNet-A dataset
@@ -29,7 +29,7 @@ def load_imagenet_A(path:str, batch_size:int, preprocess:transforms.Compose, shu
     id2class = {imagenet_A.class_to_idx[c] : py_vars.num2class[c] for c in imagenet_A.classes}
     return imagenet_A_loader, id2class
 
-def load_imagenet_v2(path:str, batch_size:int, preprocess:transforms.Compose, shuffle:bool=True, percentage:float=1.0):
+def load_imagenet_v2(path:str, batch_size:int, preprocess:transforms.Compose, shuffle:bool=True, percentage:float=1.0, from_idx=0):
     """
     Loads the images from the ImageNet-V2 dataset
     :param path: str: path to the ImageNet-V2 dataset
@@ -47,7 +47,7 @@ def load_imagenet_v2(path:str, batch_size:int, preprocess:transforms.Compose, sh
     id2class = {imagenet_v2.class_to_idx[c] : py_vars.num2class_v2[int(c)] for c in imagenet_v2.classes}
     return imagenet_v2_loader, id2class
 
-def load_cifar100(path:str, batch_size:int, preprocess:transforms.Compose, shuffle:bool=True, percentage:float=1.0):
+def load_cifar100(path:str, batch_size:int, preprocess:transforms.Compose, shuffle:bool=True, percentage:float=1.0, from_idx=0):
     """
     Loads the images from the CIFAR-100 dataset
     :param path: str: path to the CIFAR-100 dataset

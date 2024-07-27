@@ -1,4 +1,0 @@
-[LOSS] Batch 0 - Delta loss: -2.59400, Delta entropy: -782.48117
-[ACC] Batch num:0 - Top1: 0.00, Top5: 0.00
-[LOSS] Batch 10 - Delta loss: 5.29333, Delta entropy: -383.11023
-[ACC] Batch num:10 - Top1: 81.82, Top5: 90.91

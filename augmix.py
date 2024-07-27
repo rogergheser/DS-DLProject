@@ -74,7 +74,7 @@ def random_horizontal_flip(img):
 def random_resize_crop(img):
     from torchvision.transforms import RandomResizedCrop
     size = 224
-    return RandomResizedCrop(size, scale=(0.8,1.0))(img)
+    return RandomResizedCrop(size, scale=(0.8,1.0),  )(img)
 
 def random_vertical_flip(img):
     from torchvision.transforms import RandomVerticalFlip
