@@ -117,7 +117,6 @@ def add_caption_loss(net: OurCLIP, captioner: Captioner, batch, text_features, i
             ice_scores[batch] = (2 * image_logits[batch] * caption_logits[batch]).div(image_logits[batch] + caption_logits[batch])
     else:
         raise ValueError("Ensamble method not implemented")
-        
 
     caption_prediction = torch.mean(caption_logits, dim=0)
     if debug:
