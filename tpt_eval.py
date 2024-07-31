@@ -289,8 +289,6 @@ def main(
     ice_loss=True,
     debug=DEBUG
 ):
-    DEBUG = debug
-    RUN_NAME = run_name
 
     checkpoints = [file for file in os.listdir(f"runs/{RUN_NAME}") if file.startswith("checkpoint")]
     if len(checkpoints) > 0:
