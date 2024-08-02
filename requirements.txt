@@ -1,13 +1,4 @@
 open_clip_torch
 ftfy
 gdown
-matplotlib
-numpy
-pillow
-regex
-requests
 typing
-torch
-torchvision
-tqdm
-transformers

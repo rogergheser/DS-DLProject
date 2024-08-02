@@ -110,68 +110,6 @@ def generate_augmented_batch(original_tensor, num_images, augmix_module):
     return batch_tensor
 
 
-def avg_entropy(outputs):
-    logits = outputs - outputs.logsumexp(dim=-1, keepdim=True) # logits = outputs.log_softmax(dim=1) [N, 1000]
-    avg_logits = logits.logsumexp(dim=0) - np.log(logits.shape[0]) # avg_logits = logits.mean(0) [1, 1000]
-    min_real = torch.finfo(avg_logits.dtype).min
-    avg_logits = torch.clamp(avg_logits, min=min_real)
-    return -(avg_logits * torch.exp(avg_logits)).sum(dim=-1)
-
-def batch_report(inputs, outputs, final_prediction, targets, id2classes, batch_n):
-    probabilities, predictions = outputs.cpu().topk(5)
-    probabilities = probabilities.detach().numpy()
-    predictions = predictions.detach()
-
-    clip_mean = [0.48145466, 0.4578275, 0.40821073]
-    clip_std = [0.26862954, 0.26130258, 0.27577711]
-
-    mean = torch.tensor(clip_mean).reshape(1, 3, 1, 1)
-    std = torch.tensor(clip_std).reshape(1, 3, 1, 1)
-
-    # Denormalize the batch of images
-    # denormalized_images = inputs.cpu() * std + mean
-    # denormalized_images = denormalized_images.numpy().astype('uint8')
-    unnormalize = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
-    denormalized_images = unnormalize(inputs)
-
-    # Visualise the input using matplotlib
-    images = [image.numpy().transpose(1, 2, 0) for image in denormalized_images.cpu()] # Convert to numpy and transpose to (H, W, C)
-
-    # Visualise the input using matplotlib
-    label = id2classes[targets[0].item()]
-    plt.figure(figsize=(16,16))
-    plt.title(f"Image batch of {label} - min entropy 10 samples selected")
-    plt.axis('off')
-
-    for i, image in enumerate(images[:10]):
-        plt.subplot(6,4, 2*i+1)
-        plt.imshow(image)
-        plt.axis('off')
-
-        plt.subplot(6,4, 2*i+2)
-        y = np.arange(probabilities.shape[-1])
-        plt.grid()
-        plt.barh(y, probabilities[i])
-        plt.gca().invert_yaxis()
-        plt.gca().set_axisbelow(True)
-        plt.yticks(y, [id2classes[pred] for pred in predictions[i].numpy()])
-        plt.xlabel("probability")
-    
-    avg_prob, avg_pred = final_prediction.cpu().topk(5)
-    avg_prob = avg_prob.detach().numpy()
-    avg_pred = avg_pred.detach()
-    plt.subplot(6,4,22)
-    y = np.arange(avg_prob.shape[-1])
-    plt.grid()
-    plt.barh(y, avg_prob[0])
-    plt.gca().invert_yaxis()
-    plt.gca().set_axisbelow(True)
-    plt.yticks(y, [id2classes[index] for index in avg_pred[0].numpy()])
-    plt.xlabel("Final prediction (avg entropy)")    
-
-    plt.savefig(f"batch_reports/Batch{batch_n}.png")
-    plt.close()
-
 
 def batch_report(inputs:torch.Tensor, outputs: torch.Tensor, final_prediction:torch.Tensor,
                  target:torch.Tensor, id2classes: dict, batch_n:int):
