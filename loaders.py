@@ -127,7 +127,7 @@ class Augmixer(object):
             img = _augmix(x, self.preprocess, self.aug_list, self.severity)
         else:
             img = self.preprocess(x)
-        for _ in range(random.randint(1,2)):
+        for _ in range(random.randint(0,2)):
             img = random.choice(self.post_auglist)(img)
 
         return img
