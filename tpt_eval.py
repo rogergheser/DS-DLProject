@@ -19,10 +19,10 @@ except ImportError:
 
 from CLIP import clip
 
-from COOP.models import OurCLIP
 from COOP.utils import get_optimizer, log_values, get_loss_function
 from COOP.functions import training_step, test_step
 from COOP.dataloader import get_data
+from COOP.models import OurCLIP
 from coca_model import Captioner
 from loaders import Augmixer, load_pretrained_coop
 from tqdm import tqdm
@@ -31,12 +31,10 @@ from utils import (entropy, avg_entropy, batch_report, filter_on_entropy, Averag
 from copy import deepcopy
 
 
-DEBUG = False
-HARMONIC_MEAN = False
-STD_DEV = False
-RUN_NAME = "imagenetA/stddev--CoCa"
-LOG_FREQUENCY = 100
-ENSAMBLE_METHOD = 'std_dev'
+DEBUG = True
+RUN_NAME = "imagenetV2/entropy-avg--CoCa"
+LOG_FREQUENCY = 50
+ENSAMBLE_METHOD = 'entropy'
 logger = logging.getLogger(__name__)
 
 
@@ -276,7 +274,7 @@ def tpt_train_loop(data_loader, net, optimizer, cost_function, scaler, writer, i
     return cumulative_loss.get_avg() , top1.get_avg()
 
 def main(
-    dataset_name="imagenet_a",
+    dataset_name="imagenet_v2",
     backbone="ViT-B/16",
     device="mps",
     batch_size=64,

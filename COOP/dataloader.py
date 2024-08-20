@@ -1,10 +1,12 @@
 import random
 import torch
-from torch.utils import data
-from torch.utils.data import random_split
-from torchvision import datasets
 import os
 import py_vars
+import shutil
+
+from torch.utils import data
+from torch.utils.data import random_split, Subset
+from torchvision import datasets
 from loaders import Augmixer
 from typing import Optional
 
@@ -22,7 +24,7 @@ class AugmixFolder(datasets.ImageFolder):
     def __init__(self, root,transform):
         super(AugmixFolder, self).__init__(root, transform=transform)
         self.transform = transform
-        
+           
     def __getitem__(self, index):
         img, label = super(AugmixFolder, self).__getitem__(index)
         path = self.imgs[index][0]
@@ -62,7 +64,22 @@ def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, 
         dataset = AugmixFolder(root="./data", download=download, transform=transform)
         id2class = {dataset.class_to_idx[c] : c for c in dataset.classes}
     elif dataset_name == "imagenet_v2":
-        dataset = AugmixFolder(root="./data/imagenetv2-matched-frequency-format-val", transform=transform)
+        root = "./data/imagenetv2-matched-frequency-format-val"
+        filtered_root = "./data/imagenetv2-random-partition"
+        if not os.path.exists(filtered_root):
+            os.makedirs(filtered_root, exist_ok=True)
+            all_subfolders = [d.name for d in os.scandir(root) if d.is_dir()]
+            selected_subfolders = random.sample(all_subfolders, 200)
+
+            for folder in selected_subfolders:
+                src_folder = os.path.join(root, folder)
+                dest_folder = os.path.join(filtered_root, folder)
+                if not os.path.exists(dest_folder):
+                    shutil.copytree(src_folder, dest_folder, dirs_exist_ok=True) 
+        else:
+            print("Using existing partition of ImagenetV2, ensure you're using a checkpoint")
+
+        dataset = AugmixFolder(root=filtered_root, transform=transform)
         dataset.class_to_idx = {cls: i for i, cls in enumerate(dataset.classes)}
         id2class = {dataset.class_to_idx[c] : py_vars.num2class_v2[int(c)] for c in dataset.classes}
     elif dataset_name == "imagenet_a":
@@ -83,7 +100,7 @@ def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, 
             test_loader = data.DataLoader(dataset, batch_size=batch_size, 
                                           sampler=CustomSampler(range(n), from_idx=from_idx), collate_fn=my_collate)
         else:
-            test_loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
+            test_loader = data.DataLoader(dataset, batch_size=batch_size,
                                           sampler=CustomSampler(range(n), from_idx=from_idx))
     else:
         train_dataset, val_dataset, test_dataset = random_split(dataset, [n_train, n_val, n_test])
