@@ -3,7 +3,7 @@ from torch.utils.tensorboard import SummaryWriter
 from CLIP import clip
 
 from COOP.models import OurCLIP
-from COOP.utils import get_optimizer, get_cost_function, log_values
+from COOP.utils import get_optimizer, get_loss_function, log_values
 from COOP.functions import training_step, test_step
 from COOP.dataloader import get_data
 import glob
@@ -16,7 +16,7 @@ def load_pretrained_coop(backbone, _model):
         _backbone = "rn50"
     elif backbone.lower() == "rn101":
         _backbone = "rn101"
-    elif backbone.lower() == "vit_b16":
+    elif backbone.lower() == "vit_b16" or backbone.lower() == "vit-b/16":
         _backbone = "vit_b16"
     elif backbone.lower() == "vit_b32":
         _backbone = "vit_b32"
@@ -41,7 +41,7 @@ def main_coop(
     weight_decay=0.0005,
     momentum=0.9,
     epochs=2,
-    run_name="exp1",
+    run_name="exp_v2",
     n_ctx=4,
     ctx_init="",
     class_token_position="end",
@@ -135,9 +135,9 @@ def main_coop(
     writer.close()
 
 def test_coop(
-    dataset_name="imagenet_a",
-    backbone="RN50",
-    batch_size=128,
+    dataset_name="imagenet_v2",
+    backbone="ViT-B/16",
+    batch_size=64,
     device="mps",
     n_ctx=4,
     ctx_init="",
@@ -174,7 +174,7 @@ def test_coop(
         f"Total trainable parameters: {sum(p.numel() for p in net.parameters() if p.requires_grad):,}"
     )
     # Define the cost function
-    cost_function = get_cost_function()
+    cost_function = get_loss_function()
 
     test_loss, test_accuracy = test_step(net, test_loader, cost_function, device=device)
 
@@ -190,5 +190,5 @@ if __name__ == "__main__":
     else:
         DEVICE = "cpu"
 
-    main_coop(device=DEVICE)
-    # test_coop(device=DEVICE)
+    # main_coop(device=DEVICE)
+    test_coop(device=DEVICE)
