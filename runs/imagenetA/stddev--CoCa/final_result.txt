@@ -1,1 +1,1 @@
-{"dataset": "imagenet_a", "backbone": "ViT-B/16", "ice_loss": true, "top1": 56.51305274374001, "exp_name": "imagenetA/stddev--CoCa", "ice average": "std_dev"}
+{"dataset": "imagenet_a", "backbone": "ViT-B/16", "ice_loss": true, "top1": 56.518844053802106, "exp_name": "imagenetA/stddev--CoCa", "ice average": "std_dev"}

@@ -11,13 +11,13 @@ def training_step(net, data_loader, optimizer, cost_function, device="cuda"):
     
     # Iterate over the training set
     pbar = tqdm(data_loader, desc="Training", position=0, leave=True, total=len(data_loader))
-    for batch_idx, (inputs, targets) in enumerate(data_loader):
+    for batch_idx, (inputs, targets, _) in enumerate(data_loader):
         # Load data into GPU
         inputs = inputs.to(device)
         targets = targets.to(device)
         
         # Forward pass
-        outputs = net(inputs)
+        outputs, _ = net(inputs)
         
         # Loss computation
         loss = cost_function(outputs, targets)
@@ -56,13 +56,13 @@ def test_step(net, data_loader, cost_function, device="cuda"):
     pbar = tqdm(data_loader, desc="Testing", position=0, leave=True, total=len(data_loader))
     with torch.no_grad():
         # Iterate over the test set
-        for batch_idx, (inputs, targets) in enumerate(data_loader):
+        for batch_idx, (inputs, targets, _) in enumerate(data_loader):
             # Load data into GPU
             inputs = inputs.to(device)
             targets = targets.to(device)
             
             # Forward pass
-            outputs = net(inputs)
+            outputs, _ = net(inputs)
             
             # Loss computation
             loss = cost_function(outputs, targets)
