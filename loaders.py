@@ -63,23 +63,6 @@ def load_cifar100(path:str, batch_size:int, preprocess:transforms.Compose, shuff
     id2class = {cifar100.class_to_idx[c] : c for c in cifar100.classes}
     return cifar100_loader, id2class
 
-# class Augmixer():
-#     def __init__(self, preprocess:transforms.Compose, batch_size:int=64, severity: int = 3, mixture_width: int = 5, chain_depth: int = 1, alpha: float = 0.3):
-#         self.preprocess = preprocess
-#         self.batch_size = batch_size
-#         self.augmenter = v2.AugMix(severity=severity, mixture_width=mixture_width, chain_depth=chain_depth, alpha=alpha)
-    
-#     def __call__(self, img):
-#         # img = self.preprocess(img)
-#         if torch.is_tensor(img):
-#             if not img.dtype == torch.uint8:
-#                 img = img.mul(255).byte()
-#             assert img.dtype == torch.uint8, "Image must be of type uint8"            
-
-#         augmentations = [self.preprocess(self.augmenter(img)) for _ in range(self.batch_size-1)]
-#         res = [self.preprocess(img)] + augmentations
-#         return torch.stack(res).squeeze(0)
-
 def get_preaugment():
     return transforms.Compose([
             transforms.RandomResizedCrop(224),
