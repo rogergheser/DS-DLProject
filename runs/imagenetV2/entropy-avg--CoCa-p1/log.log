@@ -1,0 +1,14 @@
+[LOSS] Batch 0 - Delta loss: 6.21240, Delta entropy: -0.01629
+[ACC] Batch num:0 - Top1: 100.0, Top5: 100.0
+[LOSS] Batch 100 - Delta loss: 0.14491, Delta entropy: -1712.12357
+[ACC] Batch num:100 - Top1: 92.07920792079209, Top5: 98.01980198019803
+[LOSS] Batch 200 - Delta loss: 6.21118, Delta entropy: -59.93184
+[ACC] Batch num:200 - Top1: 91.04477611940298, Top5: 98.50746268656717
+[LOSS] Batch 300 - Delta loss: 1.40524, Delta entropy: -100.76925
+[ACC] Batch num:300 - Top1: 87.04318936877077, Top5: 97.34219269102991
+[LOSS] Batch 400 - Delta loss: 6.18329, Delta entropy: -150.06106
+[ACC] Batch num:400 - Top1: 81.29675810473816, Top5: 94.2643391521197
+[LOSS] Batch 500 - Delta loss: -1.79450, Delta entropy: -2427.37055
+[ACC] Batch num:500 - Top1: 80.03992015968065, Top5: 92.41516966067864
+[LOSS] Batch 600 - Delta loss: 6.21127, Delta entropy: -246.34248
+[ACC] Batch num:600 - Top1: 76.37271214642263, Top5: 91.18136439267886
