@@ -1,0 +1,1 @@
+{"dataset": "imagenet_v2", "backbone": "ViT-B/16", "ice_loss": true, "top1": 71.48, "exp_name": "imagenetV2/baseline-p1", "ice average": "entropy"}

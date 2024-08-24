@@ -69,7 +69,7 @@ def get_data(dataset_name, batch_size, transform, shuffle=True, train_size=0.8, 
         if not os.path.exists(filtered_root):
             os.makedirs(filtered_root, exist_ok=True)
             all_subfolders = [d.name for d in os.scandir(root) if d.is_dir()]
-            selected_subfolders = random.sample(all_subfolders, 200)
+            selected_subfolders = random.sample(all_subfolders, 500)
 
             for folder in selected_subfolders:
                 src_folder = os.path.join(root, folder)

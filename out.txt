@@ -1,0 +1,9 @@
+Using manual seed 0
+Initial context: 'a photo of a'
+Number of context words (tokens): 4
+Turning off gradients in both the image and the text encoder
+Total parameters: 124,325,889
+Total trainable parameters: 2,048
+Beginning testing with TPT + ice_loss=True:
+	Test loss 158.26417, Test accuracy 71.72
+

@@ -31,9 +31,9 @@ from utils import (entropy, avg_entropy, batch_report, filter_on_entropy, Averag
 from copy import deepcopy
 
 
-DEBUG = True
-RUN_NAME = "imagenetV2/entropy-avg--CoCa"
-LOG_FREQUENCY = 50
+DEBUG = False
+RUN_NAME = "imagenetV2/entropy-avg--CoCa-p1"
+LOG_FREQUENCY = 100
 ENSAMBLE_METHOD = 'entropy'
 logger = logging.getLogger(__name__)
 
@@ -363,6 +363,17 @@ def main(
 
 
 if __name__ == "__main__":
+    import argparse
+
+    ice_loss = False
+    ensamble_method = ""
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run_name", type=str, default="no-name")
+
+    args = parser.parse_args()
+    RUN_NAME = args.run_name
+
     if torch.cuda.is_available():
         DEVICE = "cuda"
     elif torch.backends.mps.is_available():
