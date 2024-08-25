@@ -5,7 +5,7 @@ import py_vars
 import shutil
 
 from torch.utils import data
-from torch.utils.data import random_split, Subset
+from torch.utils.data import random_split
 from torchvision import datasets
 from loaders import Augmixer
 from typing import Optional
