@@ -11,7 +11,7 @@ Add subsections if missing here
 ## Dataset
 
 ## Approach
-Also add link to TPT, CoOp and CoCa explanations --> check notebook + Images
+Also add link to TPT, CoOp and CoCa explanations -> check notebook + Images
 <!-- remove line to remove comments
 ### TPT
 
