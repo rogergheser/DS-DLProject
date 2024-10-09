@@ -1,3 +1,5 @@
+README still in progress. Kindly refer to the notebook in the meantime.
+
 <!-- remove line to remove comments
 # CLIP
 
